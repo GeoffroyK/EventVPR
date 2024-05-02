@@ -10,15 +10,10 @@ def runConversion(args):
     
     (
         ffmpeg
-            .input(args.folder_location + '*.png', patter_type='glob', framerate=25)
-            .output(args.filename + args.format)
+            .input(args.folder_location + '*.png', pattern_type='glob', framerate=args.framerate, vcodec='png', pix_fmt='yuv420p')
+            .output(args.filename + args.format, pix_fmt='yuv420p')
             .run()
     )
-
-    # print(args.folder_location + '*.png')
-    # ffmpeg.input(args.folder_location + '*.png', patter_type='glob', framerate=25)
-    # ffmpeg.output(args.filename + args.format)
-    # ffmpeg.run()
 
 def parseArgs() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -26,12 +21,14 @@ def parseArgs() -> argparse.Namespace:
         description="Convert images from a specific folder to a video."
     )
 
-    parser.add_argument('--format', type=str, choices=['.mp4', '.avi', '.mjpeg'], default='.mp4',
+    parser.add_argument('--format', type=str, choices=['.mp4', '.avi', '.mjpeg', '.mov'], default='.mp4',
                         help='File format of the output video')
     parser.add_argument('--folder_location', type=str, required=True,
                         help='Path of the input folder')
     parser.add_argument('--filename', type=str, required=False,
                         help='File name of the video')
+    parser.add_argument('--framerate', type=int, required=False, default=10,
+                        help='Framerate of the outputed video')
     
     args = parser.parse_args()
     return args
