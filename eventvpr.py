@@ -29,13 +29,11 @@ class eventDataset(Dataset):
     Args:
         Dataset (_type_): _description_
     """
-    def __init__(self, eventsPath, spikeNumber) -> None:
+    def __init__(self, eventDataFrame) -> None:
         super().__init__()
-        self.eventPath = eventsPath
-        self.spikeNumber = spikeNumber
 
         self.imgList, self.timestamps = self.read_img_file()
-
+        self.eventDataFrame = eventDataFrame
         self.tbins = []
         self.sbins = self.buildSpikeBins()
 
@@ -43,30 +41,34 @@ class eventDataset(Dataset):
     def buildTimeBins(self) -> None:
         pass
 
-    def buildSpikeBins(self) -> list:
+    def buildSpikeBins(self, bins) -> torch.Tensor:
         '''
         Divide the dataset, in N bins composed of spikesNumber spike(s).
         If spikesNumber = 1, then one spike will only be taken during each bins (eg, no binnings) 
         '''
-        spikeBins = []
-        # Iterate over the events
-        
-        spikeIndex = 0
-        currentBins = []
-        for index, event in enumerate(timestamps):
-            if spikeIndex == self.spikeNumber:
-                spikeIndex = 0
-                spikeBins.append(currentBins)
-                currentBins = []
 
-            # Update last bins if the list is finished
-            if index == len(timestamps):
-                spikeBins.append(currentBins)
+        xMax = self.eventDataFrame["x"].max()
+        yMax = self.eventDataFrame["y"].max()
 
-            currentBins.append(event)
+        binned_event_frames = []
+        event_in = torch.zeros((2,yMax + 1, xMax + 1))
+        iteration = 1
+        sIndex = 0
 
-        return spikeBins
-
+        while sIndex < len(self.eventDataFrame):         
+            while sIndex < iteration * bins and sIndex < len(self.eventDataFrame):
+                # Which channel ie polarity
+                polarity = self.eventDataFrame["polarity"].loc[sIndex]
+                yPos = self.eventDataFrame["y"].loc[sIndex]
+                xPos = self.eventDataFrame["x"].loc[sIndex]
+                
+                event_in[polarity][yMax - yPos][xMax - xPos] += 1
+                sIndex += 1
+            binned_event_frames.append(event_in)
+            iteration += 1
+        binned_event_frames = torch.from_numpy(binned_event_frames)
+    
+        return binned_event_frames
 
     def read_img_file(self):
         img_list = []
@@ -96,5 +98,5 @@ class eventDataset(Dataset):
 
 if __name__=="__main__":
     net = EventVPR(n_in=1,n_out=2)
-    dataset = eventDataset(eventsPath='/home/keimeg/Téléchargements/shapes_rotation/', spikeNumber=1000)
-    imglist, timestamps = dataset.read_img_file()
+    #dataset = eventDataset(eventsPath='/home/keimeg/Téléchargements/shapes_rotation/', spikeNumber=1000)
+    #imglist, timestamps = dataset.read_img_file()
