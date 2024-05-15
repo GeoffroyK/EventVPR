@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-
+import pandas as pd
 from torch.utils.data import Dataset
 from spikingjelly.activation_based import neuron, learning, functional
 
@@ -29,14 +29,26 @@ class eventDataset(Dataset):
     Args:
         Dataset (_type_): _description_
     """
-    def __init__(self, eventDataFrame) -> None:
+    def __init__(self, filepath) -> None:
         super().__init__()
 
-        self.imgList, self.timestamps = self.read_img_file()
-        self.eventDataFrame = eventDataFrame
+        self.eventDataFrame = self.initData(filepath)
         self.tbins = []
-        self.sbins = self.buildSpikeBins()
+        self.sbins = []
 
+    def initData(self, filepath):
+        '''
+        Return a formatted dataframe of all events in the 
+        timestamp, x, y, polarity manner.
+        '''
+        eventdf = pd.read_csv(filepath, delimiter=' ', header=3, usecols=[0, 1, 2, 3])
+        eventdf = eventdf.set_axis(["timestamp","x","y","polarity"], axis=1)
+
+        # Convert X and Y columns in integer
+        eventdf["x"] = eventdf["x"].astype(int)
+        print(eventdf.dtypes)
+
+        return eventdf
 
     def buildTimeBins(self) -> None:
         pass
@@ -67,8 +79,9 @@ class eventDataset(Dataset):
             binned_event_frames.append(event_in)
             iteration += 1
         binned_event_frames = torch.from_numpy(binned_event_frames)
-    
-        return binned_event_frames
+
+        self.sbins = binned_event_frames
+        return self.sbins
 
     def read_img_file(self):
         img_list = []
@@ -97,6 +110,7 @@ class eventDataset(Dataset):
         pass
 
 if __name__=="__main__":
-    net = EventVPR(n_in=1,n_out=2)
+    #net = EventVPR(n_in=1,n_out=2)
+    eventdt = eventDataset(filepath="./jAER-events.txt")
     #dataset = eventDataset(eventsPath='/home/keimeg/Téléchargements/shapes_rotation/', spikeNumber=1000)
     #imglist, timestamps = dataset.read_img_file()
