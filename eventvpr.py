@@ -34,13 +34,10 @@ class EventDataset(Dataset):
         Dataset (_type_): _description_
     """
     def __init__(self, filepath) -> None:
-
-    def __init__(self, eventDataFrame) -> None:
         super().__init__()
 
         self.eventDataFrame = self.initData(filepath)
         # self.imgList, self.timestamps = self.read_img_file()
-        self.eventDataFrame = eventDataFrame
         self.tbins = []
         self.sbins = []
 
@@ -115,12 +112,14 @@ class EventDataset(Dataset):
                 sIndex += 1
             binned_event_frames.append(event_in)
             iteration += 1
+
+            pbar.update(1)
+        pbar.close()
         binned_event_frames = torch.from_numpy(binned_event_frames)
 
         self.sbins = binned_event_frames
         return self.sbins
-            pbar.update(1)
-        pbar.close()
+    
         return binned_event_frames
 
     def read_img_file(self):
@@ -138,35 +137,9 @@ class EventDataset(Dataset):
 
     def __getitem__(self, index) -> any:
         return super().__getitem__(index)
-
-    def spikeBinning():
-        """_summary_
-        """
-        pass
-
-    def timeBinning():
-        """_summary_
-        """
-        pass
-
+    
 if __name__=="__main__":
     #net = EventVPR(n_in=1,n_out=2)
-    eventdt = eventDataset(filepath="./jAER-events.txt")
+    eventdt = EventDataset(filepath="./jAER-events.txt")
     #dataset = eventDataset(eventsPath='/home/keimeg/Téléchargements/shapes_rotation/', spikeNumber=1000)
     #imglist, timestamps = dataset.read_img_file()
-
-if __name__ == "__main__":
-    net = EventVPR(n_in=346 * 260, n_out=2)
-
-    filepath = "/home/geoffroy/jAER-events.txt"
-    eventdf = pd.read_csv(filepath, delimiter=" ",
-                          header=3, usecols=[0, 1, 2, 3])
-    eventdf = eventdf.set_axis(["timestamp", "x", "y", "polarity"], axis=1)
-
-    # Convert X and Y columns in integer
-    eventdf["x"] = eventdf["x"].astype(int)
-    print(eventdf.head(10))
-
-    dataset = EventDataset(eventdf)
-    binned_event_list = dataset.buildSpikeBins(bins=1000)
-    net(binned_event_list[0])
