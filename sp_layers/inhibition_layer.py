@@ -33,19 +33,16 @@ class InhibitionLayer(nn.Module):
         # Get the k_winners neurons
         k_winners = torch.topk(self.v, self.k).indices
 
+        # Set the output of the k_winners neurons
         for winner in k_winners:
             if self.v[winner] > self.v_threshold and self.resting_state[winner] == 0:
                 y[winner] = 1.
-        # Set the output of the k_winners neurons
-        #y[k_winners] = torch.where(self.v[k_winners] > self.v_threshold and self.resting_state[k_winners] == torch.zeros(1), 1.0, 0.0)
-
+                self.v[winner] = 0.
+                self.resting_state[winner] = self.refractory_period
         # Set the refractory period of the k_winners neurons that have spiked
-        #self.resting_state[k_winners] = torch.where(self.v[k_winners] > self.v_threshold, self.refractory_period, 0.0)
-
-        if torch.max(self.v) > self.v_threshold:
-            # Reset potentials of the layer to 0
-            self.v = torch.zeros_like(self.v)
-
+        for neuron_index, neuron in enumerate(self.resting_state):
+            if neuron > 0:
+                self.v[neuron_index] = 0.
         # Decrement the refractory period of the neurons that spiked previously
         self.resting_state = torch.where(self.resting_state > 0, self.resting_state - 1, 0)
 
