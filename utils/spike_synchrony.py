@@ -5,10 +5,11 @@ from scipy.integrate import trapezoid
 # Parameters
 tau = 20
 
+
 def create_spike_train(event_sequence: np.array, dims: tuple) -> np.array:
     """
     Create a spike train from a list of spike times, each spike train is defined as the list of indices (discrete time) of the spike
-    """
+    """ 
     lastTimestamp = None
     event_index = 0
 
@@ -71,8 +72,12 @@ def convoluted_signal(time:np.array, signal:np.array) -> np.array:
     convoluted_signal = np.zeros_like(time, dtype=np.float64)
     for i, t in enumerate(time):
         # Accumulate contributions from past events
-            for j in range(i+1):
-                convoluted_signal[i] += signal[j] * exp_kernel(i - j, tau)
+            if i + 1  < len(signal):
+                for j in range(i+1):
+                    convoluted_signal[i] += signal[j] * exp_kernel(i - j, tau)
+            # else:
+            #     for j in range(len(signal)):
+            #         convoluted_signal[i] += signal[j] * exp_kernel(i - j, tau)
     return convoluted_signal
 
 def heaviside(t):
@@ -89,6 +94,25 @@ def van_rossum_distance(signal_distance, tau):
     D_R = np.sqrt((1 / tau) * integral)
     return D_R
 
+
+# def exp_kernel(spikes: np.array, tau: float) -> np.array:
+#     conv = np.zeros_like(spikes)
+#     spiked = False
+#     for index, spike in enumerate(spikes):
+#         if spike == 1.:
+#             print("spike")
+#             conv[index] = 1
+#             spiked = True
+#         elif spiked:
+#             #conv[index] = np.exp(- conv[index-1] + (conv[index-1] - 1) / tau)
+#             conv[index] = conv[index-1] + -conv[index-1] / tau
+#             # if conv[index] == 0:
+#             #     print("resetting")
+#             #     spiked = False
+#     return conv 
+        
+
+
 if __name__ == "__main__":
     time = np.arange(0, 100, 1)  # Time vector
 
@@ -103,6 +127,8 @@ if __name__ == "__main__":
     # Calcul des signaux convolués
     xt = convoluted_signal(time, x)
     yt = convoluted_signal(time, y)
+    # xt = exp_kernel(x, 2.)
+    # yt = exp_kernel(y, 2.)
 
     # Création des sous-graphiques
     fig, axs = plt.subplots(2, 2, figsize=(12, 10))
@@ -139,9 +165,38 @@ if __name__ == "__main__":
     print(van_rossum_distance(signal_distance(xt, yt), tau))
     plt.show()
 
-    # event_seq = np.asarray(np.load(f"../event_sliding_window_40k_sunset1.npy", allow_pickle=True).item()[0])
+    event_seq = np.asarray(np.load(f"../event_sliding_window_40k_sunset1.npy", allow_pickle=True).item()[0])
 
-    # event_tensor_on, event_tensor_off, time_index = create_spike_train(event_sequence=event_seq, dims=(346,260))
+    event_tensor_on, event_tensor_off, time_index = create_spike_train(event_sequence=event_seq, dims=(346,260))
+    time = np.arange(0, time_index, 1)
+    print(np.asarray(event_tensor_on[0][0]))
+    print(time_index)
+
+    xt = np.zeros_like(time)
+    for event in event_tensor_on[0][0]:
+        xt[event] = 1
+
+    xt = convoluted_signal(time, xt)
+    # Créer une nouvelle figure avec deux sous-graphiques
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
+    
+    # Tracer les événements ON dans le premier sous-graphique
+    ax1.eventplot(event_tensor_on[0][0], colors='r')
+    ax1.set_title("Événements ON")
+    ax1.set_xlim(0, time_index)
+    ax1.set_xlabel("Temps")
+    ax1.set_ylabel("Amplitude")
+    
+    # Tracer xt dans le deuxième sous-graphique
+    ax2.plot(np.arange(0, len(event_tensor_on[0][0]),1), xt, color='b')
+    ax2.set_title("Signal convolué xt")
+    ax2.set_xlabel("Temps")
+    ax2.set_ylabel("Amplitude")
+    
+    # Ajuster l'espacement entre les sous-graphiques
+    plt.tight_layout()
+    plt.show()
+
 
     # time = np.arange(0, time_index, 1)
     # #onconv = convoluted_signal(time, event_tensor_on[0][0])
