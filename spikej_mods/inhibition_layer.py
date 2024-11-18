@@ -5,7 +5,6 @@ GABA Interneuron inhibition PyTorch Implementation from S. Thorpe, 1990.
 
 @GeoffroyK
 '''
-
 import torch
 import torch.nn as nn
 
