@@ -37,6 +37,12 @@ class EventVPREncoder(nn.Module):
             #nn.Softmax(dim=1)
         )
 
+    def get_n_parameters(self):
+        return sum(p.numel() for p in self.parameters() if p.requires_grad)
+
+    def get_layer_parameters(self, layer):
+        return sum(p.numel() for p in layer.parameters() if p.requires_grad)
+
     def forward(self, x):
         x = self.conv1(x)
         x = self.conv2(x)
@@ -79,9 +85,16 @@ def convert_hist_tensor(batch_size:int, hists:np.array, dims:tuple) -> torch.ten
     return hist_tensor
 
 if __name__ == "__main__":
-    net = EventVPREncoder(in_channels=2, out_channels=32, kernel_size=7)
+    net = EventVPREncoder(in_channels=2, out_channels=32, kernel_size=7, num_places=5)
 
     event_seq = recalltw.get_event_seq("sunset1", 25, 0.06)
     event_seq = recalltw.time_windows_around(event_seq[0],0.06,20)
     in_tensor = convert_hist_tensor(1,event_seq, [260,346])
     net(in_tensor)
+    print(f"Total parameters: {net.get_n_parameters()}")
+    print(f"Parameters in Conv1: {net.get_layer_parameters(net.conv1)}")
+    print(f"Parameters in Conv2: {net.get_layer_parameters(net.conv2)}")
+    print(f"Parameters in Conv3: {net.get_layer_parameters(net.conv3)}")
+    print(f"Parameters in Conv3: {net.get_layer_parameters(net.conv4)}")
+    print(f"Parameters in Bottom: {net.get_layer_parameters(net.bottom)}")
+    print(f"Parameters in Linear Layers: {net.get_layer_parameters(net.decoder)}")

@@ -8,7 +8,7 @@ import vpr_encoder
 from triplet_cosine_loss import CosineTripletLoss
 from training_datasets import VPRDataset, TripletVPRDataset
 from spikingjelly.clock_driven import neuron, functional
-
+from utils.data_augmentation import event_drop
 import wandb
 
 # Set GPU Parameter
