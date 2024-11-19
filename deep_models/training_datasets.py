@@ -1,7 +1,6 @@
 import random
 import torch
 import torch.nn as nn
-
 import recalltw
 import vpr_encoder
 from utils.data_augmentation import event_drop
@@ -201,7 +200,7 @@ class DATripletVPRDataset(TripletVPRDataset):
         data = self.data[idx].copy()
         positive = self.data[idx].copy()
         negative = self.data[idx].copy()
-        anchor_label = self.labels[idx].copy()
+        anchor_label = self.labels[idx]
 
         # Drop events on a random tensor of the sequence
         drop = random.randint(0,len(data))

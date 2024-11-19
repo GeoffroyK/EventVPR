@@ -6,7 +6,7 @@ import random
 import os
 import vpr_encoder
 from triplet_cosine_loss import CosineTripletLoss
-from training_datasets import VPRDataset, TripletVPRDataset
+from training_datasets import VPRDataset, TripletVPRDataset, DATripletVPRDataset
 from spikingjelly.clock_driven import neuron, functional
 import torch.nn.functional as F
 
@@ -141,7 +141,7 @@ def validate(model, dataloader, criterion, device):
 
     return val_loss, val_accuracy
 
-def train_model(model, train_loader, val_loader, criterion, optimizer, device, num_epochs):
+def train_model(model, train_loader, val_loader, criterion, optimizer, device, num_epochs, model_name):
     """
     Train the model for a specified number of epochs.
 
@@ -163,7 +163,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, device, n
         "dataset": "Brisbane VPR",
         "epochs": num_epochs
     }
-    run = init_wandb("event_vpr_25_triplet_loss", wandb_config)
+    run = init_wandb(model_name, wandb_config)
 
     for epoch in range(num_epochs):
         train_loss, train_accuracy = train_epoch(model, train_loader, criterion, optimizer, device)
@@ -197,6 +197,11 @@ def parse_args():
     parser.add_argument('--n_places', type=int, default=25, help='Number of places to learn')
     parser.add_argument('--data_format', type=str, choices=['pickle', 'txt'], default='txt', help='Format for reading data: pickle or txt')
     parser.add_argument('--gpu', type=int, default=0, help='CUDA GPU device number (default: 0)')
+    parser.add_argument('--data_augmentation', action='store_true', default=False, help="Use data augmentation for training")
+    parser.add_argument('--n_hist', type=int, default=20, help='Number of histograms fed to the network')
+    parser.add_argument('--time_window', type=float, default=0.06, help='Time window for each histogram in seconds')
+    parser.add_argument('--model_name', type=str, default='EventVPR', help='Name of the model for wandb logging')
+    parser.add_argument('--scheduler', action='store_true', help='Use learning rate scheduler')
 
     return parser.parse_args()
 
@@ -220,10 +225,14 @@ if __name__ == "__main__":
 
     print(f"Building datasets...")
 
-    train_dataset = TripletVPRDataset(traverses, n_places=args.n_places, time_window=0.06, n_hist=20, format=args.data_format)
+    if args.data_augmentation:
+        train_dataset = DATripletVPRDataset(traverses, n_places=args.n_places, time_window=args.time_window, n_hist=args.n_hist, format=args.data_format)
+        test_dataset = DATripletVPRDataset(["daytime"], n_places=args.n_places, time_window=args.time_window, n_hist=args.n_hist, format=args.data_format)
+    else:
+        train_dataset = TripletVPRDataset(traverses, n_places=args.n_places, time_window=args.time_window, n_hist=args.n_hist, format=args.data_format)
+        test_dataset = TripletVPRDataset(["daytime"], n_places=args.n_places, time_window=args.time_window, n_hist=args.n_hist, format=args.data_format)
+            
     print(f"Training dataset created with {len(train_dataset)} samples")
-
-    test_dataset = TripletVPRDataset(["daytime"], n_places=args.n_places, time_window=0.06, n_hist=20, format=args.data_format)
     print(f"Test dataset created with {len(test_dataset)} samples")
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
@@ -238,7 +247,8 @@ if __name__ == "__main__":
         criterion=criterion,
         optimizer=optimizer,
         num_epochs=args.epochs,
-        device=device
+        device=device,
+        model_name=args.model_name
     )
 
     # Save the trained model

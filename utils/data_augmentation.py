@@ -127,4 +127,4 @@ def drop_by_time(events_sequence: list) -> list:
     max_t = max(timestamps)
     # Exclude events from the delimited time window.
     idx = (timestamps < max_t * t_start) | (timestamps > (max_t * t_end))
-    return events_sequence(idx)
+    return events_sequence[idx]
