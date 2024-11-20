@@ -189,11 +189,15 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size for training')
     parser.add_argument('--learning_rate', type=float, default=0.001, help='Learning rate for optimizer')
     parser.add_argument('--model_save_path', type=str, default='vpr_encoder.pth', help='Path to save the trained model')
-    parser.add_argument('--n_places', type=int, default=25, help='Number of places to learn') 
+    parser.add_argument('--n_places', type=int, default=25, help='Number of places to learn')
     parser.add_argument('--data_format', type=str, choices=['pickle', 'txt'], default='txt', help='Format for reading data: pickle or txt')
     parser.add_argument('--gpu', type=int, default=0, help='CUDA GPU device number (default: 0)')
-    parser.add_argument('--scheduler', action='store_true', help='Use learning rate scheduler')
+    parser.add_argument('--data_augmentation', action='store_true', default=False, help="Use data augmentation for training")
+    parser.add_argument('--n_hist', type=int, default=20, help='Number of histograms fed to the network')
+    parser.add_argument('--time_window', type=float, default=0.06, help='Time window for each histogram in seconds')
     parser.add_argument('--model_name', type=str, default='EventVPR', help='Name of the model for wandb logging')
+    parser.add_argument('--scheduler', action='store_true', help='Use learning rate scheduler')
+    parser.add_argument('--dataset_path', type=str, required=True, help='Path to the dataset')
 
     return parser.parse_args()
 

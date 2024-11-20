@@ -157,7 +157,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, device, n
         val_loss, val_accuracy = validate(model, val_loader, criterion, device)
         
         if scheduler != None:
-            scheduler.step(train_loss)
+            scheduler.step()
 
         print(f"Epoch {epoch+1}/{num_epochs}")
         print(f"Train Loss: {train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}")
