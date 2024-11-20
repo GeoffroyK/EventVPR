@@ -1,14 +1,17 @@
 #!/bin/bash
 
 ### SLURM Configuration		
-#SBATCH	--job-name=gpu_triplet_ssl 		### Name of the job
+#SBATCH	--job-name=triplet_ssl 		### Name of the job
 #SBATCH	--partition=gpu 			### Selection of the partition (default, gpu)
 #SBATCH	--output=gpu_triplet_ssl_output.%j 		### Slurm output file %j is the job id
 #SBATCH	--error=gpu_triplet_ssl_error.%j 		### Slurm error file
 #SBATCH	--nodes=1				### Number of nodes
 #SBATCH	--ntasks=1				### Number of tasks
 #SBATCH	--gres=gpu:1				### Number of GPUs : 1 GPU
-#SBATCH --mem=1024
+#SBATCH --mem=25G
+
+module load cuda/12.4
+
 
 ### Running the command
 ## Run options
@@ -28,6 +31,8 @@ MODEL_SAVE_PATH="output/"
 DATASET_PATH="../data/"
 
 # Scheduler and data augmentation if always set, remove the argument if you don't want to use it
+## Set WandB to offline due to firewall issues
+export WANDB_MODE=offline
 python3 -u deep_models/triplet_training.py \
     --scheduler \
     --data_augmentation \
@@ -43,3 +48,6 @@ python3 -u deep_models/triplet_training.py \
     --model_save_path "$MODEL_SAVE_PATH" \
     --dataset_path "$DATASET_PATH" \
     --gpu "$GPU"
+wandb init | 1
+wandb sync .
+

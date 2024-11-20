@@ -1,14 +1,15 @@
 #!/bin/bash
 
 ### SLURM Configuration		
-#SBATCH	--job-name=gpu_triplet_ssl 		### Name of the job
+#SBATCH	--job-name=gpu_cross_e 		### Name of the job
 #SBATCH	--partition=gpu 			### Selection of the partition (default, gpu)
-#SBATCH	--output=gpu_triplet_ssl_output.%j 		### Slurm output file %j is the job id
-#SBATCH	--error=gpu_triplet_ssl_error.%j 		### Slurm error file
+#SBATCH	--output=gpu_vpr_ce_output.%j 		### Slurm output file %j is the job id
+#SBATCH	--error=gpu_vpr_ce_error.%j 		### Slurm error file
 #SBATCH	--nodes=1				### Number of nodes
 #SBATCH	--ntasks=1				### Number of tasks
 #SBATCH	--gres=gpu:1				### Number of GPUs : 1 GPU
 #SBATCH --mem=1024
+#SBATCH --time:02:00:00
 
 ### Running the command
 ## Run options
@@ -28,6 +29,7 @@ MODEL_SAVE_PATH="output/"
 DATASET_PATH="../data/"
 
 # Scheduler and data augmentation if always set, remove the argument if you don't want to use it
+export WANDB_MODE=offline
 python3 -u deep_models/train_vpr_encoder.py \
     --scheduler \
     --data_augmentation \
@@ -43,3 +45,5 @@ python3 -u deep_models/train_vpr_encoder.py \
     --model_save_path "$MODEL_SAVE_PATH" \
     --dataset_path "$DATASET_PATH" \
     --gpu "$GPU"
+wandb init | 1
+wandb sync .
