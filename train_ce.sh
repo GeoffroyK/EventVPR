@@ -28,7 +28,7 @@ MODEL_SAVE_PATH="output/"
 DATASET_PATH="../data/"
 
 # Scheduler and data augmentation if always set, remove the argument if you don't want to use it
-python3 deep_models/triplet_training.py \
+python3 -u deep_models/train_vpr_encoder.py \
     --scheduler \
     --data_augmentation \
     --seed "$SEED" \
