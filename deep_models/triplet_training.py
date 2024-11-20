@@ -9,7 +9,6 @@ from triplet_cosine_loss import CosineTripletLoss
 from training_datasets import VPRDataset, TripletVPRDataset, DATripletVPRDataset
 from spikingjelly.clock_driven import neuron, functional
 import torch.nn.functional as F
-
 import wandb
 
 # Set GPU Parameter
@@ -85,12 +84,6 @@ def train_epoch(model, dataloader, criterion, optimizer, device):
     epoch_loss = total_loss / len(dataloader)
     epoch_accuracy = correct_predictions / total_samples
 
-    # Log metrics to W&B
-    log_metrics({
-        'train_loss': epoch_loss,
-        'train_accuracy': epoch_accuracy
-    })
-
     return epoch_loss, epoch_accuracy
 
 def validate(model, dataloader, criterion, device):
@@ -133,15 +126,9 @@ def validate(model, dataloader, criterion, device):
     val_loss = total_loss / len(dataloader)
     val_accuracy = correct_predictions / total_samples
 
-    # Log metrics to W&B
-    log_metrics({
-        'val_loss': val_loss,
-        'val_accuracy': val_accuracy
-    })
-
     return val_loss, val_accuracy
 
-def train_model(model, train_loader, val_loader, criterion, optimizer, device, num_epochs, model_name):
+def train_model(model, train_loader, val_loader, criterion, optimizer, device, num_epochs, model_name, scheduler=None):
     """
     Train the model for a specified number of epochs.
 
@@ -169,10 +156,21 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, device, n
         train_loss, train_accuracy = train_epoch(model, train_loader, criterion, optimizer, device)
         val_loss, val_accuracy = validate(model, val_loader, criterion, device)
         
+        if scheduler != None:
+            scheduler.step(train_loss)
+
         print(f"Epoch {epoch+1}/{num_epochs}")
         print(f"Train Loss: {train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}")
         print(f"Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_accuracy:.4f}")
-    
+
+        # W&B Log metrics
+        log_metrics({
+            'train_loss': train_loss,
+            'train_accuracy': train_accuracy,
+            'val_loss': val_loss,
+            'val_acc': val_accuracy
+        })
+        
     finish_wandb()
     return model
 
@@ -202,7 +200,7 @@ def parse_args():
     parser.add_argument('--time_window', type=float, default=0.06, help='Time window for each histogram in seconds')
     parser.add_argument('--model_name', type=str, default='EventVPR', help='Name of the model for wandb logging')
     parser.add_argument('--scheduler', action='store_true', help='Use learning rate scheduler')
-
+    parser.add_argument('--dataset_path', type=str, required=True, help='Path to the dataset')
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -217,6 +215,10 @@ if __name__ == "__main__":
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
     
+    scheduler = None
+    if args.scheduler:
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
+
     #criterion = CosineTripletLoss(margin=0.2)
     criterion = nn.TripletMarginLoss(margin=1.0, p=2, eps=1e-7)
 
@@ -248,7 +250,8 @@ if __name__ == "__main__":
         optimizer=optimizer,
         num_epochs=args.epochs,
         device=device,
-        model_name=args.model_name
+        model_name=args.model_name,
+        scheduler=scheduler
     )
 
     # Save the trained model

@@ -79,13 +79,6 @@ def train_epoch(model, dataloader, criterion, optimizer, device):
 
     epoch_loss = total_loss / len(dataloader)
     epoch_accuracy = correct_predictions / total_samples
-
-    # Log metrics to W&B
-    log_metrics({
-        'train_loss': epoch_loss,
-        'train_accuracy': epoch_accuracy
-    })
-
     return epoch_loss, epoch_accuracy
 
 def validate(model, dataloader, criterion, device):
@@ -123,12 +116,6 @@ def validate(model, dataloader, criterion, device):
     val_loss = total_loss / len(dataloader)
     val_accuracy = correct_predictions / total_samples
 
-    # Log metrics to W&B
-    log_metrics({
-        'val_loss': val_loss,
-        'val_accuracy': val_accuracy
-    })
-
     return val_loss, val_accuracy
 
 def train_model(model, train_loader, val_loader, criterion, optimizer, device, num_epochs, model_save_path, model_name, scheduler=None):
@@ -161,11 +148,19 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, device, n
         val_loss, val_accuracy = validate(model, val_loader, criterion, device)
         
         if scheduler != None:
-            scheduler.step(train_loss)
+            scheduler.step()
 
         print(f"Epoch {epoch+1}/{num_epochs}")
         print(f"Train Loss: {train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}")
         print(f"Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_accuracy:.4f}")
+
+        # W&B Log metrics
+        log_metrics({
+            'train_loss': train_loss,
+            'train_accuracy': train_accuracy,
+            'val_loss': val_loss,
+            'val_acc': val_accuracy
+        })
 
         if last_acc < train_accuracy:
             last_acc = train_accuracy
@@ -173,7 +168,6 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, device, n
             current_save_path += str(epoch) + str(train_accuracy) + ".pth"
             torch.save(model.state_dict(), current_save_path)
 
-    
     finish_wandb()
     return model
 
@@ -215,6 +209,7 @@ if __name__ == "__main__":
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
     
+    scheduler = None
     if args.scheduler:
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
 

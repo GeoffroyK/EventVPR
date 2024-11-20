@@ -1,10 +1,13 @@
 import random
 import torch
 import torch.nn as nn
-import recalltw
+
 import vpr_encoder
 from utils.data_augmentation import event_drop
+from utils import recalltw
 from torch.utils.data import Dataset
+
+
 
 class VPRDataset(Dataset):
     """

@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "event_vpr"
+version = "0.1.0"
+description = "Event VPR module for event-based visual place recognition"
+authors = [
+    { name = "GeoffroyK"}
+]
+dependencies = []
+
+[tool.setuptools]
+packages = ["utils"]
