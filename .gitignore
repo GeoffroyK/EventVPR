@@ -1,0 +1,18 @@
+# Cache
+*.pyc
+*.pyo
+*.pyd
+
+# pth files
+*.pth
+
+# Images
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+
+# End Generation Here
+
