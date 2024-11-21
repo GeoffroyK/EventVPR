@@ -14,5 +14,7 @@
 *.bmp
 *.tiff
 
-# End Generation Here
+wandb/
+data/
+gpu_*
 
