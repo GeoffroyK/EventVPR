@@ -46,6 +46,7 @@ class VPRDataset(Dataset):
         self.format = format
 
         for traverse in traverses:
+            print(f"Processing traverse {traverse}")
             event_seq = recalltw.get_event_seq(traverse, n_places, 1.0, format)
             for place in range(n_places): 
                 hist_seq = recalltw.time_windows_around(event_seq[place], time_window, n_hist)

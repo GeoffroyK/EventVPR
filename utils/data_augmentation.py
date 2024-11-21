@@ -135,9 +135,9 @@ def drop_by_time(events_sequence: list) -> list:
     idx = (timestamps < max_t * t_start) | (timestamps > (max_t * t_end))
     return events_sequence[idx]
 
-def shift_right(events_sequence: list, dims=[346,266], offset=5) -> list:
+def shift_right(events_sequence: list, dims=[346,260], offset=20) -> list:
     '''
-    Shift all events 5 pixels to the right in the x-axis in a data augmentation fashion.
+    Shift all events n pixels to the right in the x-axis in a data augmentation fashion.
     If an event is out of the border after shifting, it is erased.
 
     Args:
@@ -145,17 +145,17 @@ def shift_right(events_sequence: list, dims=[346,266], offset=5) -> list:
                                             Each row represents an event with [timestamp, x, y, polarity].
 
     Returns:
-        numpy.ndarray: The events sequence with all events shifted 5 pixels to the right.
+        numpy.ndarray: The events sequence with all events shifted n pixels to the right, removing those out of the boundary.
     '''
-    # Shift all events 5 pixels to the right
-    events_sequence[:, 1] += offset
-    # Erase events that are out of the border
-    idx = (events_sequence[:, 1] >= 0) & (events_sequence[:, 1] < dims[0])
-    return events_sequence[idx]
+    # Generate a random offset
+    offset = np.random.randint(1, 150)
+    # Shift all events n pixels to the right
+    events_sequence[:, :, 1] += offset
+    return events_sequence
 
-def shift_left(events_sequence: list, dims=[346,266], offset=5) -> list:
+def shift_left(events_sequence: list, dims=[346,260], offset=20) -> list:
     '''
-    Shift all events 5 pixels to the left in the x-axis in a data augmentation fashion.
+    Shift all events n pixels to the left in the x-axis in a data augmentation fashion.
     If an event is out of the border after shifting, it is erased.
 
     Args:
@@ -163,12 +163,12 @@ def shift_left(events_sequence: list, dims=[346,266], offset=5) -> list:
                                             Each row represents an event with [timestamp, x, y, polarity].
 
     Returns:
-        numpy.ndarray: The events sequence with all events shifted 5 pixels to the left.
+        numpy.ndarray: The events sequence with all events shifted n pixels to the left.
     '''
-    # Shift all events 5 pixels to the left
-    events_sequence[:, 1] -= offset
-    # Erase events that are out of the border
-    idx = (events_sequence[:, 1] >= 0) & (events_sequence[:, 1] < dims[0])
-    return events_sequence[idx]
+    # Generate a random offset
+    offset = np.random.randint(1, 150)
+    # Shift all events n pixels to the left
+    events_sequence[:, :, 1] -= offset
+    return events_sequence
 
 

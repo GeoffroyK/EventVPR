@@ -10,6 +10,7 @@ from training_datasets import VPRDataset, TripletVPRDataset, DATripletVPRDataset
 from spikingjelly.clock_driven import neuron, functional
 import torch.nn.functional as F
 import wandb
+import torch.nn.init as init
 
 # Set GPU Parameter
 os.environ['TORCH_CUDA_ARCH_LIST'] = '8.6'
@@ -43,6 +44,23 @@ def finish_wandb():
     """
     wandb.finish()
 
+def initialize_weights(model):
+    """
+    Initialize the weights of the model.
+
+    Args:
+        model (nn.Module): The neural network model.
+    """
+    for layer in model.children():
+        if isinstance(layer, nn.Conv3d):
+            init.kaiming_normal_(layer.weight, mode='fan_out', nonlinearity='relu')
+            if layer.bias is not None:
+                init.zeros_(layer.bias)
+        elif isinstance(layer, nn.Linear):
+            init.xavier_normal_(layer.weight)
+            if layer.bias is not None:
+                init.zeros_(layer.bias)
+
 def train_epoch(model, dataloader, criterion, optimizer, device):
     """
     Train the model for one epoch.
@@ -70,9 +88,9 @@ def train_epoch(model, dataloader, criterion, optimizer, device):
         negative_output = model(negative)
         loss = criterion(anchor_output, positive_output, negative_output)
             
-        distance_pos = float(F.cosine_similarity(positive_output, anchor_output))
-        distance_neg = float(F.cosine_similarity(negative_output, anchor_output))
-        training_accuracy = max(0, distance_neg - distance_pos)
+        distance_pos = float(F.cosine_similarity(positive_output, anchor_output).mean())
+        distance_neg = float(F.cosine_similarity(negative_output, anchor_output).mean())
+        training_accuracy = 1 if distance_neg > distance_pos else 0
         
         loss.backward()
         optimizer.step()
@@ -80,9 +98,9 @@ def train_epoch(model, dataloader, criterion, optimizer, device):
 
         total_loss += loss.item()
         correct_predictions += training_accuracy
-        total_samples += 1
+
     epoch_loss = total_loss / len(dataloader)
-    epoch_accuracy = correct_predictions / total_samples
+    epoch_accuracy = correct_predictions / len(dataloader)
 
     return epoch_loss, epoch_accuracy
 
@@ -113,22 +131,21 @@ def validate(model, dataloader, criterion, device):
             negative_output = model(negative)
             loss = criterion(anchor_output, positive_output, negative_output)
             
-            distance_pos = float(F.cosine_similarity(positive_output, anchor_output))
-            distance_neg = float(F.cosine_similarity(negative_output, anchor_output))
-            val_accuracy = max(0, distance_neg - distance_pos)
+            distance_pos = float(F.cosine_similarity(positive_output, anchor_output).mean())
+            distance_neg = float(F.cosine_similarity(negative_output, anchor_output).mean())
+            val_accuracy = 1 if distance_neg > distance_pos else 0
 
             total_loss += loss.item()
             correct_predictions += val_accuracy
-            total_samples += 1
             
             functional.reset_net(model)
 
     val_loss = total_loss / len(dataloader)
-    val_accuracy = correct_predictions / total_samples
+    val_accuracy = correct_predictions / len(dataloader)
 
     return val_loss, val_accuracy
 
-def train_model(model, train_loader, val_loader, criterion, optimizer, device, num_epochs, model_name, scheduler=None):
+def train_model(model, train_loader, val_loader, criterion, optimizer, device, num_epochs, model_name, model_save_path, scheduler=None):
     """
     Train the model for a specified number of epochs.
 
@@ -151,7 +168,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, device, n
         "epochs": num_epochs
     }
     run = init_wandb(model_name, wandb_config)
-
+    last_acc = 0
     for epoch in range(num_epochs):
         train_loss, train_accuracy = train_epoch(model, train_loader, criterion, optimizer, device)
         val_loss, val_accuracy = validate(model, val_loader, criterion, device)
@@ -171,6 +188,13 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, device, n
             'val_acc': val_accuracy
         })
         
+        if last_acc < train_accuracy:
+            last_acc = train_accuracy
+            current_save_path = model_save_path.split('.')[0]
+            current_save_path += f"_{epoch}_{train_accuracy:.4f}.pth"
+            os.makedirs(os.path.dirname(current_save_path), exist_ok=True)
+            torch.save(model.state_dict(), current_save_path)
+
     finish_wandb()
     return model
 
@@ -210,7 +234,8 @@ if __name__ == "__main__":
     set_random_seed(device, args.seed)
 
     # Initialize the model, optimizer, and loss function
-    model = vpr_encoder.EmbeddedVPREncoder(in_channels=2, out_channels=32, kernel_size=7, num_places=args.n_places, embedding_size=258)
+    model = vpr_encoder.EmbeddedVPREncoder(in_channels=2, out_channels=32, kernel_size=7, num_places=args.n_places, embedding_size=18)
+    initialize_weights(model)
     # Move model to specified device
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
@@ -237,11 +262,16 @@ if __name__ == "__main__":
     print(f"Training dataset created with {len(train_dataset)} samples")
     print(f"Test dataset created with {len(test_dataset)} samples")
 
+
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True)
 
-    # Train the model using the VPR Dataset
-    #train_vpr_encoder(model, train_loader, optimizer, criterion, device, args.epochs)
+
+    print(f"Training loader created with {len(train_loader)} batches")
+
+    # Create the directory for saving the model
+    os.makedirs(os.path.dirname(args.model_save_path), exist_ok=True)
+
     model = train_model(
         model=model,
         train_loader=train_loader,
@@ -251,9 +281,10 @@ if __name__ == "__main__":
         num_epochs=args.epochs,
         device=device,
         model_name=args.model_name,
+        model_save_path=args.model_save_path,
         scheduler=scheduler
     )
 
     # Save the trained model
-    torch.save(model.state_dict(), args.model_save_path)
+    torch.save(model.state_dict(), f"{args.model_save_path}_{args.epochs}_final.pth")
     print(f"Model saved to {args.model_save_path}")

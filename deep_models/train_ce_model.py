@@ -5,8 +5,9 @@ import argparse
 import random
 import os
 import vpr_encoder
+import torch.nn.init as init
 from triplet_cosine_loss import CosineTripletLoss
-from training_datasets import VPRDataset, TripletVPRDataset
+from training_datasets import VPRDataset, DAVPRDataset
 from spikingjelly.clock_driven import neuron, functional
 from utils.data_augmentation import event_drop
 import wandb
@@ -42,6 +43,24 @@ def finish_wandb():
     Finish the current W&B run.
     """
     wandb.finish()
+
+
+def initialize_weights(model):
+    """
+    Initialize the weights of the model.
+
+    Args:
+        model (nn.Module): The neural network model.
+    """
+    for layer in model.children():
+        if isinstance(layer, nn.Conv3d):
+            init.kaiming_normal_(layer.weight, mode='fan_out', nonlinearity='relu')
+            if layer.bias is not None:
+                init.zeros_(layer.bias)
+        elif isinstance(layer, nn.Linear):
+            init.xavier_normal_(layer.weight)
+            if layer.bias is not None:
+                init.zeros_(layer.bias)
 
 def train_epoch(model, dataloader, criterion, optimizer, device):
     """
@@ -165,7 +184,8 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, device, n
         if last_acc < train_accuracy:
             last_acc = train_accuracy
             current_save_path = model_save_path.split('.')[0]
-            current_save_path += str(epoch) + str(train_accuracy) + ".pth"
+            current_save_path += f"_{epoch}_{train_accuracy:.4f}.pth"
+            os.makedirs(os.path.dirname(current_save_path), exist_ok=True)
             torch.save(model.state_dict(), current_save_path)
 
     finish_wandb()
@@ -209,6 +229,7 @@ if __name__ == "__main__":
 
     # Initialize the model, optimizer, and loss function
     model = vpr_encoder.EventVPREncoder(in_channels=2, out_channels=32, kernel_size=7, num_places=args.n_places)
+    initialize_weights(model)
     # Move model to specified device
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
@@ -225,14 +246,21 @@ if __name__ == "__main__":
 
     print(f"Building datasets...")
 
-    train_dataset = VPRDataset(traverses, n_places=args.n_places, time_window=0.06, n_hist=20, format=args.data_format)
-    print(f"Training dataset created with {len(train_dataset)} samples")
-
-    test_dataset = VPRDataset(["daytime"], n_places=args.n_places, time_window=0.06, n_hist=20, format=args.data_format)
+    if args.data_augmentation:
+        train_dataset = DAVPRDataset(traverses, n_places=args.n_places, time_window=args.time_window, n_hist=args.n_hist, format=args.data_format)
+        test_dataset = DAVPRDataset(["daytime"], n_places=args.n_places, time_window=args.time_window, n_hist=args.n_hist, format=args.data_format)
+    else:
+        train_dataset = VPRDataset(traverses, n_places=args.n_places, time_window=args.time_window, n_hist=args.n_hist, format=args.data_format)
+        test_dataset = VPRDataset(["daytime"], n_places=args.n_places, time_window=args.time_window, n_hist=args.n_hist, format=args.data_format)
+        
     print(f"Test dataset created with {len(test_dataset)} samples")
+    print(f"Training dataset created with {len(train_dataset)} samples")
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True)
+
+    # Create the directory for saving the model
+    os.makedirs(os.path.dirname(args.model_save_path), exist_ok=True)
 
     # Train the model using the VPR Dataset
     model = train_model(
@@ -249,5 +277,5 @@ if __name__ == "__main__":
     )
 
     # Save the trained model
-    torch.save(model.state_dict(), args.model_save_path)
+    torch.save(model.state_dict(), f"{args.model_save_path}_{args.epochs}_final.pth")
     print(f"Model saved to {args.model_save_path}")
