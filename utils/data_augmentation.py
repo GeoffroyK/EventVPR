@@ -18,6 +18,8 @@ def event_drop(events_sequence: list, dims: tuple) -> list:
     2. Drop by time
     3. Drop by area
     4. Random drop
+    5. Left shift
+    6. Right shift
 
     Args:
         events_sequence (list): A list of events, where each event is typically
@@ -31,15 +33,19 @@ def event_drop(events_sequence: list, dims: tuple) -> list:
         The specific drop techniques (drop_by_time, drop_by_area, random_drop) are
         implemented in separate functions.
     """
-    option = np.random.randint(0,4)
+    option = np.random.randint(0,6)
     if option == 0: # No drop
         return events_sequence
     elif option == 1: # Drop by time
         return drop_by_time(events_sequence)
     elif option == 2: # Drop by area
         return drop_by_area(events_sequence, dims)
-    else: # Random drop
+    elif option == 3: # Random drop
         return random_drop(events_sequence)
+    elif option == 4: # Left shift
+        return shift_left(events_sequence)
+    elif option == 5: # Right shift
+        return shift_right(events_sequence)
     
 def random_drop(events_sequence: list) -> list:
     """
@@ -128,3 +134,41 @@ def drop_by_time(events_sequence: list) -> list:
     # Exclude events from the delimited time window.
     idx = (timestamps < max_t * t_start) | (timestamps > (max_t * t_end))
     return events_sequence[idx]
+
+def shift_right(events_sequence: list, dims=[346,266], offset=5) -> list:
+    '''
+    Shift all events 5 pixels to the right in the x-axis in a data augmentation fashion.
+    If an event is out of the border after shifting, it is erased.
+
+    Args:
+        events_sequence (numpy.ndarray): An array of shape (N, 4) where N is the number of events.
+                                            Each row represents an event with [timestamp, x, y, polarity].
+
+    Returns:
+        numpy.ndarray: The events sequence with all events shifted 5 pixels to the right.
+    '''
+    # Shift all events 5 pixels to the right
+    events_sequence[:, 1] += offset
+    # Erase events that are out of the border
+    idx = (events_sequence[:, 1] >= 0) & (events_sequence[:, 1] < dims[0])
+    return events_sequence[idx]
+
+def shift_left(events_sequence: list, dims=[346,266], offset=5) -> list:
+    '''
+    Shift all events 5 pixels to the left in the x-axis in a data augmentation fashion.
+    If an event is out of the border after shifting, it is erased.
+
+    Args:
+        events_sequence (numpy.ndarray): An array of shape (N, 4) where N is the number of events.
+                                            Each row represents an event with [timestamp, x, y, polarity].
+
+    Returns:
+        numpy.ndarray: The events sequence with all events shifted 5 pixels to the left.
+    '''
+    # Shift all events 5 pixels to the left
+    events_sequence[:, 1] -= offset
+    # Erase events that are out of the border
+    idx = (events_sequence[:, 1] >= 0) & (events_sequence[:, 1] < dims[0])
+    return events_sequence[idx]
+
+
