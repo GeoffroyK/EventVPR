@@ -8,7 +8,7 @@
 #SBATCH	--nodes=1				### Number of nodes
 #SBATCH	--ntasks=1				### Number of tasks
 #SBATCH	--gres=gpu:1				### Number of GPUs : 1 GPU
-#SBATCH --mem=25G
+#SBATCH --mem=50G
 
 module load cuda/12.4
 
@@ -17,7 +17,7 @@ module load cuda/12.4
 ## Run options
 SEED=42
 EPOCHS=150
-BATCH_SIZE=32
+BATCH_SIZE=8
 LEARNING_RATE=0.001
 GPU=0
 
@@ -27,7 +27,7 @@ TIME_WINDOW=0.06
 DATA_FORMAT="pickle"
 
 MODEL_NAME="ssl_triplet"
-MODEL_SAVE_PATH="output/"
+MODEL_SAVE_PATH="output/triplet/$(date +'%Y%m%d_%H%M%S')/"
 DATASET_PATH="../data/"
 
 # Scheduler and data augmentation if always set, remove the argument if you don't want to use it

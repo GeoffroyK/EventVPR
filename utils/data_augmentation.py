@@ -150,7 +150,7 @@ def shift_right(events_sequence: list, dims=[346,260], offset=20) -> list:
     # Generate a random offset
     offset = np.random.randint(1, 150)
     # Shift all events n pixels to the right
-    events_sequence[:, :, 1] += offset
+    events_sequence[:, 2] += offset
     return events_sequence
 
 def shift_left(events_sequence: list, dims=[346,260], offset=20) -> list:
@@ -168,7 +168,7 @@ def shift_left(events_sequence: list, dims=[346,260], offset=20) -> list:
     # Generate a random offset
     offset = np.random.randint(1, 150)
     # Shift all events n pixels to the left
-    events_sequence[:, :, 1] -= offset
+    events_sequence[:, 2] -= offset
     return events_sequence
 
 

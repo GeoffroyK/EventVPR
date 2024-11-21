@@ -251,14 +251,14 @@ def recall_n_histograms(ax, timewindows, traverses, event_data, bin, places=25) 
 def get_event_seq(traverse, n_places, timewindow, format='pickle') -> list:
     '''
     Get the event sequence of each places on selectected traverse at a fixed timewindow
-    (must be saved before in the save_time_window function)
+    (must be saved before with the save_time_window function)
     '''
     event_seq = []
     for place in range(n_places):
         if format == 'pickle':
-            event_seq.append(np.load(f"data/timewindow/{traverse}_{place}_{timewindow}.npy", allow_pickle=True))
+            event_seq.append(np.load(f"/home/geoffroyk/EventVPR/data/{traverse}_{place}_{timewindow}.npy", allow_pickle=True))
         elif format == 'txt':
-            event_seq.append(np.loadtxt(f"data/timewindow/{traverse}_{place}_{timewindow}.txt"))
+            event_seq.append(np.loadtxt(f"/home/geoffroyk/EventVPR/data/{traverse}_{place}_{timewindow}.txt"))
     return np.array(event_seq, dtype=object)
 
 def construct_histogram(traverses, timewindows, n_places=25):
