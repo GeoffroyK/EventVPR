@@ -2,7 +2,7 @@ import random
 import torch
 import torch.nn as nn
 
-import vpr_encoder
+import deep_models.vpr_encoder as vpr_encoder
 from utils.data_augmentation import event_drop
 from utils import recalltw
 from torch.utils.data import Dataset
@@ -172,7 +172,7 @@ class TripletVPRDataset(VPRDataset):
 
         return anchor, positive, negative
 
-class DATripletVPRDataset(TripletVPRDataset):
+class DATripletVPRDataset(DAVPRDataset):
     '''
     This dataset class extends the TripletVPRDataset to provide a more advanced way of generating triplets for training models with triplet loss functions. 
 
@@ -213,7 +213,6 @@ class DATripletVPRDataset(TripletVPRDataset):
                 data[index] = recalltw.event_histogram(event_drop(event_seq, dims=(346,260)))
             else:
                 data[index] = recalltw.event_histogram(event_seq)
-        anchor = vpr_encoder.convert_hist_tensor(1, data, [260, 346]).squeeze(0)
 
         # == Create Positive Block == 
         # Positive sample, random sample with the same label (place)
@@ -235,4 +234,7 @@ class DATripletVPRDataset(TripletVPRDataset):
         for index, event_seq in enumerate(negative_raw):
             negative[index] = recalltw.event_histogram(event_seq)
 
-        return anchor, positive, negative
+        anchor = vpr_encoder.convert_hist_tensor(1, data, [260, 346]).squeeze(0)
+        positive = vpr_encoder.convert_hist_tensor(1, positive, [260, 346]).squeeze(0)
+        negative = vpr_encoder.convert_hist_tensor(1, negative, [260, 346]).squeeze(0)
+        return (anchor, positive, negative)
