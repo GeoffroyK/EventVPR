@@ -173,69 +173,129 @@ class TripletVPRDataset(VPRDataset):
 
         return anchor, positive, negative
 
-class DATripletVPRDataset(DAVPRDataset):
-    '''
-    This dataset class extends the TripletVPRDataset to provide a more advanced way of generating triplets for training models with triplet loss functions. 
+# class DATripletVPRDataset(DAVPRDataset):
+#     '''
+#     This dataset class extends the TripletVPRDataset to provide a more advanced way of generating triplets for training models with triplet loss functions. 
 
-    Attributes:
-        Inherits all attributes from TripletVPRDataset.
+#     Attributes:
+#         Inherits all attributes from TripletVPRDataset.
 
-    Args:
-        traverses (list): A list of traverse identifiers to process.
-        n_places (int): The number of places in each traverse.
-        time_window (float): The time window for each histogram in seconds.
-        n_hist (int): The number of histograms in each sequence.
-        format (str): The format of the input data files. Can be either 'pickle' or 'txt'.
+#     Args:
+#         traverses (list): A list of traverse identifiers to process.
+#         n_places (int): The number of places in each traverse.
+#         time_window (float): The time window for each histogram in seconds.
+#         n_hist (int): The number of histograms in each sequence.
+#         format (str): The format of the input data files. Can be either 'pickle' or 'txt'.
 
-    The dataset creates triplets where:
-    - The anchor is a randomly selected data point with some events dropped to simulate real-world scenarios.
-    - The positive sample is another data point from the same place as the anchor, also with some events dropped.
-    - The negative sample is a data point from a different place than the anchor, with some events dropped.
+#     The dataset creates triplets where:
+#     - The anchor is a randomly selected data point with some events dropped to simulate real-world scenarios.
+#     - The positive sample is another data point from the same place as the anchor, also with some events dropped.
+#     - The negative sample is a data point from a different place than the anchor, with some events dropped.
 
-    Each item returned by __getitem__ is a tuple of (anchor, positive, negative),
-    where each element is a tensor of shape [C, N_HIST, H, W].
+#     Each item returned by __getitem__ is a tuple of (anchor, positive, negative),
+#     where each element is a tensor of shape [C, N_HIST, H, W].
  
-    TODO: Add parameter to get negative samples geography close to the anchor 
-    '''
-    def __init__(self, traverses:list, n_places:int, time_window:float, n_hist:int, format:str):
+#     TODO: Add parameter to get negative samples geography close to the anchor 
+#     '''
+#     def __init__(self, traverses:list, n_places:int, time_window:float, n_hist:int, format:str):
+#         super().__init__(traverses, n_places, time_window, n_hist, format)
+
+#     def __getitem__(self, idx):
+#         data = self.data[idx].copy()
+#         positive = self.data[idx].copy()
+#         negative = self.data[idx].copy()
+#         anchor_label = self.labels[idx]
+
+#         # Drop events on a random tensor of the sequence
+#         drop = random.randint(0,len(data))
+        
+#         for index, event_seq in enumerate(data):
+#             if index == drop:
+#                 data[index] = recalltw.event_histogram(event_drop(event_seq, dims=(346,260)))
+#             else:
+#                 data[index] = recalltw.event_histogram(event_seq)
+
+#         # == Create Positive Block == 
+#         # Positive sample, random sample with the same label (place)
+#         positive_idx = torch.randint(len(self.data), (1,))
+#         while self.labels[positive_idx] != anchor_label:
+#             positive_idx = torch.randint(len(self.data), (1,))
+#         positive_raw = self.data[positive_idx]
+#         # Convert to list of histograms
+#         for index, event_seq in enumerate(positive_raw):
+#             positive[index] = recalltw.event_histogram(event_seq)
+
+#         # == Create Negative Block == 
+#         # Negative sample, random sample the a different label (place)
+#         negative_idx = torch.randint(len(self.data), (1,))
+#         while self.labels[negative_idx] == anchor_label:
+#             negative_idx = torch.randint(len(self.data), (1,))
+#         negative_raw = self.data[negative_idx]
+#         # Convert to list of histograms
+#         for index, event_seq in enumerate(negative_raw):
+#             negative[index] = recalltw.event_histogram(event_seq)
+
+#         anchor = vpr_encoder.convert_hist_tensor(1, data, [260, 346]).squeeze(0)
+#         positive = vpr_encoder.convert_hist_tensor(1, positive, [260, 346]).squeeze(0)
+#         negative = vpr_encoder.convert_hist_tensor(1, negative, [260, 346]).squeeze(0)
+#         return (anchor, positive, negative)
+
+class DATripletVPRDataset(DAVPRDataset):
+    def __init__(self, traverses:list, n_places:int, time_window:float, n_hist:int, format:str, 
+                 augmentations_per_sample:int = 5):
         super().__init__(traverses, n_places, time_window, n_hist, format)
+        
+        # Preprocess and store augmented versions of the data
+        self.processed_data = []
+        self.processed_labels = []
+        
+        print("Preprocessing data with augmentations...")
+        for idx, events in enumerate(self.data):
+            # Store the original version
+            hist_seq = [recalltw.event_histogram(event_seq) for event_seq in events]
+            tensor = vpr_encoder.convert_hist_tensor(1, hist_seq, [260, 346]).squeeze(0)
+            self.processed_data.append(tensor)
+            self.processed_labels.append(self.labels[idx])
+            
+            # Create augmented versions
+            for _ in range(augmentations_per_sample):
+                augmented = events.copy()
+                drop = random.randint(0, len(augmented)-1)
+                
+                hist_seq = []
+                for index, event_seq in enumerate(augmented):
+                    if index == drop:
+                        hist_seq.append(recalltw.event_histogram(
+                            event_drop(event_seq, dims=(346,260))))
+                    else:
+                        hist_seq.append(recalltw.event_histogram(event_seq))
+                
+                tensor = vpr_encoder.convert_hist_tensor(1, hist_seq, [260, 346]).squeeze(0)
+                self.processed_data.append(tensor)
+                self.processed_labels.append(self.labels[idx])
+        
+        # Clear the original data to save memory
+        self.data = None
+        print(f"Preprocessing complete. Total samples: {len(self.processed_data)}")
+
+    def __len__(self):
+        return len(self.processed_data)
 
     def __getitem__(self, idx):
-        data = self.data[idx].copy()
-        positive = self.data[idx].copy()
-        negative = self.data[idx].copy()
-        anchor_label = self.labels[idx]
+        anchor = self.processed_data[idx]
+        anchor_label = self.processed_labels[idx]
 
-        # Drop events on a random tensor of the sequence
-        drop = random.randint(0,len(data))
-        
-        for index, event_seq in enumerate(data):
-            if index == drop:
-                data[index] = recalltw.event_histogram(event_drop(event_seq, dims=(346,260)))
-            else:
-                data[index] = recalltw.event_histogram(event_seq)
+        # Find indices of all samples with same label
+        positive_indices = [i for i, label in enumerate(self.processed_labels) 
+                          if label == anchor_label and i != idx]
+        # Find indices of all samples with different labels
+        negative_indices = [i for i, label in enumerate(self.processed_labels) 
+                          if label != anchor_label]
 
-        # == Create Positive Block == 
-        # Positive sample, random sample with the same label (place)
-        positive_idx = torch.randint(len(self.data), (1,))
-        while self.labels[positive_idx] != anchor_label:
-            positive_idx = torch.randint(len(self.data), (1,))
-        positive_raw = self.data[positive_idx]
-        # Convert to list of histograms
-        for index, event_seq in enumerate(positive_raw):
-            positive[index] = recalltw.event_histogram(event_seq)
+        # Randomly select positive and negative samples
+        positive_idx = random.choice(positive_indices)
+        negative_idx = random.choice(negative_indices)
 
-        # == Create Negative Block == 
-        # Negative sample, random sample the a different label (place)
-        negative_idx = torch.randint(len(self.data), (1,))
-        while self.labels[negative_idx] == anchor_label:
-            negative_idx = torch.randint(len(self.data), (1,))
-        negative_raw = self.data[negative_idx]
-        # Convert to list of histograms
-        for index, event_seq in enumerate(negative_raw):
-            negative[index] = recalltw.event_histogram(event_seq)
-
-        anchor = vpr_encoder.convert_hist_tensor(1, data, [260, 346]).squeeze(0)
-        positive = vpr_encoder.convert_hist_tensor(1, positive, [260, 346]).squeeze(0)
-        negative = vpr_encoder.convert_hist_tensor(1, negative, [260, 346]).squeeze(0)
-        return (anchor, positive, negative)
+        return (anchor, 
+                self.processed_data[positive_idx],
+                self.processed_data[negative_idx])

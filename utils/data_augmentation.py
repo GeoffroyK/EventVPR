@@ -43,9 +43,9 @@ def event_drop(events_sequence: list, dims: tuple) -> list:
     elif option == 3: # Random drop
         return random_drop(events_sequence)
     elif option == 4: # Left shift
-        return shift_left(events_sequence)
+        return shift_left(events_sequence, dims)
     elif option == 5: # Right shift
-        return shift_right(events_sequence)
+        return shift_right(events_sequence, dims)
     
 def random_drop(events_sequence: list) -> list:
     """
@@ -135,7 +135,7 @@ def drop_by_time(events_sequence: list) -> list:
     idx = (timestamps < max_t * t_start) | (timestamps > (max_t * t_end))
     return events_sequence[idx]
 
-def shift_right(events_sequence: list, dims=[346,260], offset=20) -> list:
+def shift_right(events_sequence: list, dims:tuple, offset=None) -> list:
     '''
     Shift all events n pixels to the right in the x-axis in a data augmentation fashion.
     If an event is out of the border after shifting, it is erased.
@@ -151,9 +151,11 @@ def shift_right(events_sequence: list, dims=[346,260], offset=20) -> list:
     offset = np.random.randint(1, 150)
     # Shift all events n pixels to the right
     events_sequence[:, 2] += offset
+    # Remove the out of border events
+    events_sequence = events_sequence[(events_sequence[:, 2] >= 0) & (events_sequence[:, 2] < dims[0])]
     return events_sequence
 
-def shift_left(events_sequence: list, dims=[346,260], offset=20) -> list:
+def shift_left(events_sequence: list, dims:tuple, offset=None) -> list:
     '''
     Shift all events n pixels to the left in the x-axis in a data augmentation fashion.
     If an event is out of the border after shifting, it is erased.
@@ -169,6 +171,7 @@ def shift_left(events_sequence: list, dims=[346,260], offset=20) -> list:
     offset = np.random.randint(1, 150)
     # Shift all events n pixels to the left
     events_sequence[:, 2] -= offset
+    # Remove the out of border events
+    events_sequence = events_sequence[(events_sequence[:, 2] >= 0) & (events_sequence[:, 2] < dims[0])]
+    
     return events_sequence
-
-

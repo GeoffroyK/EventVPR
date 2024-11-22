@@ -253,8 +253,8 @@ if __name__ == "__main__":
     print(f"Building datasets...")
 
     if args.data_augmentation:
-        train_dataset = DATripletVPRDataset(traverses, n_places=args.n_places, time_window=args.time_window, n_hist=args.n_hist, format=args.data_format)
-        test_dataset = DATripletVPRDataset(["daytime"], n_places=args.n_places, time_window=args.time_window, n_hist=args.n_hist, format=args.data_format)
+        train_dataset = DATripletVPRDataset(traverses, n_places=args.n_places, time_window=args.time_window, n_hist=args.n_hist, format=args.data_format, augmentations_per_sample=1)
+        test_dataset = DATripletVPRDataset(["daytime"], n_places=args.n_places, time_window=args.time_window, n_hist=args.n_hist, format=args.data_format, augmentations_per_sample=1)
     else:
         train_dataset = TripletVPRDataset(traverses, n_places=args.n_places, time_window=args.time_window, n_hist=args.n_hist, format=args.data_format)
         test_dataset = TripletVPRDataset(["daytime"], n_places=args.n_places, time_window=args.time_window, n_hist=args.n_hist, format=args.data_format)
@@ -262,12 +262,8 @@ if __name__ == "__main__":
     print(f"Training dataset created with {len(train_dataset)} samples")
     print(f"Test dataset created with {len(test_dataset)} samples")
 
-
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True)
-
-
-    print(f"Training loader created with {len(train_loader)} batches")
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
 
     # Create the directory for saving the model
     os.makedirs(os.path.dirname(args.model_save_path), exist_ok=True)

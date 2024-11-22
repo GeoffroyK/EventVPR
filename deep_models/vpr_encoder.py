@@ -30,10 +30,11 @@ class EventVPREncoder(nn.Module):
         self.conv4 = EventPoolingEncoder(out_channels * 3, out_channels * 4, kernel_size)
         self.decoder = nn.Sequential(
             nn.Flatten(),
+            # TODO: add a dropout layer with a variable dropout rate
+            # nn.Dropout(p=0.5),
             nn.Linear(out_channels * 4 * 5 * 16 * 21, 128),
             neuron.IFNode(surrogate_function=surrogate.ATan()),
             nn.Linear(128, num_places)
-            #nn.Softmax(dim=1)
         )
 
     def get_n_parameters(self):
@@ -59,7 +60,6 @@ class EmbeddedVPREncoder(EventVPREncoder):
             nn.Flatten(),
             nn.Linear(out_channels * 4 * 5 * 16 * 21, embedding_size),
         )
-
     
 def convert_hist_tensor(batch_size:int, hists:np.array, dims:tuple) -> torch.tensor:
     '''

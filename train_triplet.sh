@@ -16,17 +16,17 @@ module load cuda/12.4
 ### Running the command
 ## Run options
 SEED=42
-EPOCHS=150
-BATCH_SIZE=8
+EPOCHS=40
+BATCH_SIZE=16
 LEARNING_RATE=0.001
 GPU=0
 
-N_PLACES=25
+N_PLACES=2
 N_HIST=20
 TIME_WINDOW=0.06
 DATA_FORMAT="pickle"
 
-MODEL_NAME="ssl_triplet"
+MODEL_NAME="triplet_loss"
 MODEL_SAVE_PATH="output/triplet/$(date +'%Y%m%d_%H%M%S')/"
 DATASET_PATH="../data/"
 

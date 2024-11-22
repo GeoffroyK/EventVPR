@@ -167,15 +167,17 @@ def save_time_windows(traverse, timewindows):
                 np.save(filename, events)
 
 def event_histogram(patternList, dimension=[260,346,2]):
-    outVector = np.zeros((dimension[0], dimension[1], 3)) # 2 Channels, ON & OFF 
+    outVector = np.zeros((dimension[0], dimension[1], 2)) # 2 Channels, ON & OFF 
     for event in patternList:
         # Timestamp, X, Y, Polarity
         x = int(event[2])
         y = int(event[1])
         polarity = int(event[3])
-        outVector[x][y][polarity] += 1
+        
+        # Ensure x and y are within bounds
+        if 0 <= x < dimension[0] and 0 <= y < dimension[1]:
+            outVector[x][y][polarity] += 1
     return outVector
-
 def recall_n_timewindow(timewindows, traverses, event_data, places=25):
     duets = list(itertools.combinations(traverses, 2))
     corr_matrices = {}
