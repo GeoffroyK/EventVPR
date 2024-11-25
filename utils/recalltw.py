@@ -53,6 +53,9 @@ def time_windows_around(x, tw, n):
     past = []
     future = []
 
+    if n == 1:
+        return np.array([present])
+
     for n_hist in range(n):
         if n_hist % 2 == 0:
             past_val = xt[passed_ind]
