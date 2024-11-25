@@ -54,7 +54,7 @@ def time_windows_around(x, tw, n):
     future = []
 
     if n == 1:
-        return np.array([present])
+        return np.asarray([event_histogram(present)])
 
     for n_hist in range(n):
         if n_hist % 2 == 0:
