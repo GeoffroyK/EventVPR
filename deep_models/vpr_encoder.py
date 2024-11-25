@@ -18,7 +18,7 @@ class EventPoolingEncoder(nn.Module):
         return self.conv(x)
 
 class EventVPREncoder(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int, kernel_size:int, num_places:int):
+    def __init__(self, in_channels: int, out_channels: int, kernel_size:int, num_places:int, n_hist:int):
         super().__init__()
         self.bottom = nn.Sequential(
             nn.Conv3d(in_channels, out_channels, kernel_size = (5, 7, 7), stride=1, padding=(0,3,3), bias=False, padding_mode='replicate'),
@@ -32,7 +32,7 @@ class EventVPREncoder(nn.Module):
             nn.Flatten(),
             # TODO: add a dropout layer with a variable dropout rate
             # nn.Dropout(p=0.5),
-            nn.Linear(out_channels * 4 * 5 * 16 * 21, 128),
+            nn.Linear(out_channels * 4 * (n_hist-4*4) * 16 * 21, 128), # [BatchS, Outchannel (128), 3, 16, 21]
             neuron.IFNode(surrogate_function=surrogate.ATan()),
             nn.Linear(128, num_places)
         )
@@ -52,13 +52,13 @@ class EventVPREncoder(nn.Module):
         return x
     
 class EmbeddedVPREncoder(EventVPREncoder):
-    def __init__(self, in_channels: int, out_channels: int, kernel_size:int, num_places:int, embedding_size:int):
-        super().__init__(in_channels,out_channels, kernel_size, num_places)
+    def __init__(self, in_channels: int, out_channels: int, kernel_size:int, num_places:int, embedding_size:int, n_hist:int):
+        super().__init__(in_channels,out_channels, kernel_size, num_places, n_hist)
 
         # Override decoder with a readout of the dimension of the embedding for constrastive loss
         self.decoder = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(out_channels * 4 * 5 * 16 * 21, embedding_size),
+            nn.Linear(out_channels * 4 * (n_hist-4*4) * 16 * 21, embedding_size), # [BatchS, Outchannel (128), 3, 16, 21]
         )
     
 def convert_hist_tensor(batch_size:int, hists:np.array, dims:tuple) -> torch.tensor:
@@ -78,7 +78,12 @@ def convert_hist_tensor(batch_size:int, hists:np.array, dims:tuple) -> torch.ten
             H is the height of the histogram.
     '''
     hist_tensor = torch.zeros(batch_size, 2, len(hists), dims[0], dims[1])
-    for i, hist in enumerate(hists):
+    if len(hists) == 1: # 2D Case
+        hist_tensor = torch.zeros(batch_size, 2, dims[0], dims[1])
+        hist_tensor[:, 0, :, :] = torch.from_numpy(hist[:, :, 0])  # ON events
+        hist_tensor[:, 1, :, :] = torch.from_numpy(hist[:, :, 1])  # OFF events
+        return hist_tensor
+    for i, hist in enumerate(hists): # 3D Case
         hist_tensor[:, 0, i, :, :] = torch.from_numpy(hist[:, :, 0])  # ON events
         hist_tensor[:, 1, i, :, :] = torch.from_numpy(hist[:, :, 1])  # OFF events
     return hist_tensor
