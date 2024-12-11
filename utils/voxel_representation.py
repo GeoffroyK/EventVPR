@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from utils import recalltw
+from utils.visualisation import plot_voxel_grids, plot_3d_voxel_grid
 
 def convert__voxel_grid(events_seq, T, dim=None):
     """
@@ -42,40 +43,21 @@ def convert__voxel_grid(events_seq, T, dim=None):
         for idx, (t, x, y, p) in enumerate(events_seq[0]):
             x = int(x)
             y = int(y)
-            volume[t_bin][x][y] = p * max(0, 1 - abs(t - t_scaled[idx]))
+            # Fix polarity to -1 instead of 0
+            if p == 0:
+                p = -1
+            volume[t_bin][x][y] += p * max(0, 1 - abs(t_bin - t_scaled[idx]))
     return volume
-
+    
 if __name__ == "__main__":
-    event_seq = recalltw.get_event_seq("sunset1", 1, 1.0, "pickle")
-    voxel_grid = convert__voxel_grid(event_seq, 6)
+    traverses = ["sunset1", "sunset2", "daytime", "morning", "sunrise"]
+    voxel_grids = []
+    for traverse in traverses:
+        # Traverse 1
+        event_seq = recalltw.get_event_seq(traverse, 1, 1.0, "pickle")
+        event_seq = event_seq[:,:15000,:]   
+        voxel_grid = convert__voxel_grid(event_seq, 5)
+        voxel_grids.append(voxel_grid)
+    plot_voxel_grids(voxel_grids, traverses)
+    plot_3d_voxel_grid(voxel_grids[0])
     
-    # Create interactive plot
-    fig, ax = plt.subplots()
-    plt.subplots_adjust(bottom=0.25)  # Make room for slider
-    
-    # Initial plot
-    frame_idx = 0
-    im = ax.imshow(voxel_grid[frame_idx], cmap='RdBu', interpolation='nearest')
-    plt.colorbar(im)
-    ax.set_title(f'Time bin: {frame_idx}')
-    
-    # Create slider
-    ax_slider = plt.axes([0.1, 0.1, 0.65, 0.03])  # [left, bottom, width, height]
-    slider = plt.Slider(
-        ax=ax_slider,
-        label='Time bin',
-        valmin=0,
-        valmax=voxel_grid.shape[0]-1,
-        valinit=0,
-        valstep=1
-    )
-    
-    # Update function for slider
-    def update(val):
-        frame_idx = int(slider.val)
-        im.set_array(voxel_grid[frame_idx])
-        ax.set_title(f'Time bin: {frame_idx}')
-        fig.canvas.draw_idle()
-    
-    slider.on_changed(update)
-    plt.show()
