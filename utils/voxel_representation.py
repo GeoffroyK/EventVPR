@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from utils import recalltw
 
-
 def convert__voxel_grid(events_seq, T, dim=None):
     """
     Voxel grid representation, each event distributes its polarity p to the two closest spatio-temporal voxels.
@@ -45,7 +44,38 @@ def convert__voxel_grid(events_seq, T, dim=None):
             y = int(y)
             volume[t_bin][x][y] = p * max(0, 1 - abs(t - t_scaled[idx]))
     return volume
+
 if __name__ == "__main__":
     event_seq = recalltw.get_event_seq("sunset1", 1, 1.0, "pickle")
     voxel_grid = convert__voxel_grid(event_seq, 6)
-
+    
+    # Create interactive plot
+    fig, ax = plt.subplots()
+    plt.subplots_adjust(bottom=0.25)  # Make room for slider
+    
+    # Initial plot
+    frame_idx = 0
+    im = ax.imshow(voxel_grid[frame_idx], cmap='RdBu', interpolation='nearest')
+    plt.colorbar(im)
+    ax.set_title(f'Time bin: {frame_idx}')
+    
+    # Create slider
+    ax_slider = plt.axes([0.1, 0.1, 0.65, 0.03])  # [left, bottom, width, height]
+    slider = plt.Slider(
+        ax=ax_slider,
+        label='Time bin',
+        valmin=0,
+        valmax=voxel_grid.shape[0]-1,
+        valinit=0,
+        valstep=1
+    )
+    
+    # Update function for slider
+    def update(val):
+        frame_idx = int(slider.val)
+        im.set_array(voxel_grid[frame_idx])
+        ax.set_title(f'Time bin: {frame_idx}')
+        fig.canvas.draw_idle()
+    
+    slider.on_changed(update)
+    plt.show()
