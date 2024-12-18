@@ -4,25 +4,30 @@ import torch.nn.functional as F
 from spikingjelly.clock_driven import neuron, surrogate
 
 class EmbeddingEventNet(nn.Module):
-    # TODO Ajouter le multiply by assurer d'avoir des spikes dans les couches les plus profondes
-    def __init__(self, channels=2, step_mode='m'):
+    def __init__(self, channels=2, multiply_factor=5., step_mode='m'):
         super().__init__()
         self.convnet = nn.Sequential(
             nn.Conv2d(channels, 32, 5),
-            neuron.IFNode(surrogate_function=surrogate.ATan(), v_threshold=0.1),
+            MultiplyBy(multiply_factor),
+            neuron.IFNode(surrogate_function=surrogate.ATan()),
             nn.MaxPool2d(2, 2),
+
             nn.Conv2d(32, 64, 5),
-            neuron.IFNode(surrogate_function=surrogate.ATan(), v_threshold=0.01),
+            MultiplyBy(multiply_factor),
+            neuron.IFNode(surrogate_function=surrogate.ATan()),
             nn.MaxPool2d(2, 2),
+
             nn.Conv2d(64, 128, 5),
-            neuron.IFNode(surrogate_function=surrogate.ATan(), v_threshold=0.001),
+            MultiplyBy(multiply_factor),
+            neuron.IFNode(surrogate_function=surrogate.ATan()),
             nn.MaxPool2d(2, 2),
             nn.AdaptiveAvgPool2d((1, 1))
         )
         self.fc = nn.Sequential(
             nn.Flatten(),
             nn.Linear(128, 128),
-            neuron.IFNode(surrogate_function=surrogate.ATan(), v_threshold=float('inf'))
+            MultiplyBy(multiply_factor),
+            neuron.IFNode(surrogate_function=surrogate.ATan(), v_threshold=float('inf'), v_reset=0.)
         )
         
     def forward(self, x):
@@ -31,8 +36,8 @@ class EmbeddingEventNet(nn.Module):
         return x
 
 class EmbeddingEventNetL2(EmbeddingEventNet):
-    def __init__(self, channels=2, step_mode='m'):
-        super().__init__(channels=channels, step_mode=step_mode)
+    def __init__(self, channels=2, multiply_factor=5., step_mode='m'):
+        super().__init__(channels=channels, multiply_factor=multiply_factor, step_mode=step_mode)
     def forward(self, x):
         x = super(EmbeddingEventNetL2, self).forward(x)
         return F.normalize(x, p=2, dim=1)
