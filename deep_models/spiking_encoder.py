@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from spikingjelly.clock_driven import neuron, surrogate
 
 class EmbeddingEventNet(nn.Module):
+    # TODO Should change MultiplyBy to BatchNorm (and add learnable parameters)
     def __init__(self, channels=2, multiply_factor=5., step_mode='m'):
         super().__init__()
         self.convnet = nn.Sequential(
@@ -23,6 +24,7 @@ class EmbeddingEventNet(nn.Module):
             nn.MaxPool2d(2, 2),
             nn.AdaptiveAvgPool2d((1, 1))
         )
+
         self.fc = nn.Sequential(
             nn.Flatten(),
             nn.Linear(128, 128),
@@ -34,6 +36,30 @@ class EmbeddingEventNet(nn.Module):
         x = self.convnet(x)
         x = self.fc(x)
         return x
+
+    def get_avg_spike_rate(self, x):
+        firing_rates_dict = {
+            "out_conv1": 0,
+            "out_conv2": 0,
+            "out_conv3": 0,
+            "out_fc": 0,
+        }
+
+        keys = list(firing_rates_dict.keys())
+
+        for module in self.convnet:
+            if isinstance(module, neuron.IFNode):
+                x = module(x)
+                firing_rates_dict[keys[0]] = x.count_nonzero() / x.numel()
+                keys.pop(0)
+            else:
+                x = module(x)
+        return firing_rates_dict
+
+    def get_last_layer_potential(self, x):
+        x = self.forward(x)
+        return x[-1].v
+
 
 class EmbeddingEventNetL2(EmbeddingEventNet):
     def __init__(self, channels=2, multiply_factor=5., step_mode='m'):

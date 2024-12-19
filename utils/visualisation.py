@@ -202,3 +202,34 @@ def plot_3d_voxel_grid(voxel_grid):
     ax.set_title(f'Voxel Grid Representation with {T} Bins')
     
     plt.show()
+
+
+def plot_spike_rates(ax, spike_rates):
+    for key, value in spike_rates.items():
+        ax.plot(value, label=key)
+    ax.set_title("Spike Rates")
+    ax.set_xlabel("Layer")
+    ax.set_ylabel("Spike Rate")
+    ax.legend()
+    return ax
+
+def plot_membrane_potential(ax, membrane_potential):
+    """
+    Plot membrane potential values as a bar chart.
+    
+    Args:
+        ax (matplotlib.axes.Axes): The axes to plot on
+        membrane_potential (torch.Tensor): Tensor of shape [1, N] containing membrane potential values
+    """
+    # Convert to numpy and flatten
+    potentials = membrane_potential.squeeze().cpu().numpy()
+    
+    # Create bar plot
+    x = np.arange(len(potentials))
+    ax.bar(x, potentials)
+    
+    # Add labels
+    ax.set_title("Membrane Potentials")
+    ax.set_xlabel("Neuron Index") 
+    ax.set_ylabel("Potential")
+    return ax
