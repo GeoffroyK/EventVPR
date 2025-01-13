@@ -7,14 +7,14 @@ https://github.com/fuqianggu/EventDrop
 import random
 import numpy as np
 
-def event_drop(events_sequence: list, dims: tuple) -> list:
+def event_drop(events_sequence: list, dims: tuple, option=None) -> list:
     """
     Apply event drop augmentation to an event sequence.
 
     This function implements the EventDrop augmentation technique described in
     "EventDrop: Data Augmentation for Event-based Learning" by F. Gu et al.
     It randomly selects one of four options:
-    1. No drop (return original sequence)
+    1. Random adding
     2. Drop by time
     3. Drop by area
     4. Random drop
@@ -33,20 +33,55 @@ def event_drop(events_sequence: list, dims: tuple) -> list:
         The specific drop techniques (drop_by_time, drop_by_area, random_drop) are
         implemented in separate functions.
     """
-    option = np.random.randint(0,6)
-    if option == 0: # No drop
-        return events_sequence
+    if option is None:
+        option = np.random.randint(0,4)
+    if option == 0: # Add events
+        return random_adding(events_sequence, dims)
     elif option == 1: # Drop by time
         return drop_by_time(events_sequence)
     elif option == 2: # Drop by area
         return drop_by_area(events_sequence, dims)
     elif option == 3: # Random drop
         return random_drop(events_sequence)
-    elif option == 4: # Left shift
-        return shift_left(events_sequence, dims)
-    elif option == 5: # Right shift
-        return shift_right(events_sequence, dims)
+    # elif option == 4: # Left shift
+    #     return shift_left(events_sequence, dims)
+    # elif option == 5: # Right shift
+    #     return shift_right(events_sequence, dims)
     
+def random_adding(events_sequence: list, dims: tuple) -> list:
+    """
+    Randomly add events to the input sequence.
+
+    Args:
+        events_sequence (list): A list of events, where each event is typically
+                                represented as [timestamp, x, y, polarity].
+        dims (tuple): A tuple of (width, height) representing the dimensions of the event frame.
+
+    Returns:
+        list: A new list of events with randomly added events.
+
+    This function implements a random event addition augmentation technique. It randomly selects 
+    a ratio between 10% and 90% of the original number of events to add as new synthetic events.
+    The new events are generated with random coordinates within the frame dimensions, random 
+    timestamps within the sequence timespan, and random polarity. The events are then sorted
+    by timestamp to maintain temporal order.
+    """
+    ratio = np.random.randint(1,10)/10.
+    # number of events in the sequence
+    n_events = len(events_sequence)
+    n_add = int(n_events * ratio)
+    for idx in range(n_add):
+        # Generate event
+        x = np.random.randint(0, dims[0])
+        y = np.random.randint(0, dims[1])
+        t = np.random.uniform(0, max(events_sequence[:,0]))
+        p = np.random.randint(0, 1)
+        events_sequence.append([t, x, y, p])
+
+    # Sort events by timestamp
+    events_sequence = sorted(events_sequence, key=lambda x: x[0])
+    return events_sequence
+
 def random_drop(events_sequence: list) -> list:
     """
     Randomly drop events from the input sequence.
