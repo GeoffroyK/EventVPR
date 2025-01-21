@@ -1,3 +1,8 @@
+"""
+Pytorch implementation of HardTripletLoss initially implemented in Tensorflow in :
+https://github.com/omoindrot/tensorflow-triplet-loss/tree/master
+"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
