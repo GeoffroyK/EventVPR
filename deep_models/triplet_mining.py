@@ -39,6 +39,7 @@ class HardTripletLoss(nn.Module):
         Returns:
             distance_matrix: tensor with shape [batch_size, batch_size]
         """
+        embeddings = embeddings.float()
         # Get the dot product between all embeddings
         dot_product = torch.matmul(embeddings, embeddings.T)
         # Get the square norm of each embedding
@@ -91,7 +92,9 @@ class HardTripletLoss(nn.Module):
         valid_triplets = self.get_valid_triplet_mask(labels)
         pairwise_dist = pairwise_dist[valid_triplets]
 
-        identity_mask = torch.eye(labels.size(0))[valid_triplets].bool()
+
+        identity_mask = torch.eye(labels.size(0)).to(self.device)
+        identity_mask = identity_mask[valid_triplets].bool()
 
         # For each anchor, get the hardest positive
         mask_anchor_positive = self.get_anchor_positive_triplet_mask(labels)[valid_triplets]
@@ -135,7 +138,9 @@ if __name__ == "__main__":
     labels = torch.tensor([1, 1, 2])  # The labels of the anchors in the batch
     embeddings = torch.tensor([[1, 1], [1, 1], [1, 2]])  # The embedded vectors
     criterion = HardTripletLoss(margin=1.0, squared=True)
-    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    labels = labels.to(device)
+    embeddings = embeddings.to(device)
     
     loss, acc = criterion(labels, embeddings)
     print("\nFinal loss:", loss.item())
