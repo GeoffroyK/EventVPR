@@ -61,13 +61,16 @@ class EmbeddedVPREncoder(EventVPREncoder):
             nn.Linear(out_channels * 4 * (n_hist-4*4) * 16 * 21, embedding_size), # [BatchS, Outchannel (128), 3, 16, 21]
         )
     
-def convert_hist_tensor(batch_size:int, hists:np.array, dims:tuple) -> torch.tensor:
+def convert_hist_tensor(batch_size:int, hists:np.array, dims:tuple, mode="3d") -> torch.tensor:
     '''
     Convert histogram in tensor.
     Args:
         batch_size (int): The number of samples in a batch.
         hists (list): A list of histograms, where each histogram is a 2D array.
         dims (tuple): The dimensions of each histogram in the format (height, width).
+        mode (str): The mode of conversion. Can be either '2d' or '3d'.
+                    If '2d', returns a tensor of shape [B, C, H, W].
+                    If '3d', returns a tensor of shape [B, C, N_HIST, H, W].
 
     Returns:
         torch.Tensor: A tensor of shape [B, C, N_HIST, W, H] where:
@@ -78,15 +81,28 @@ def convert_hist_tensor(batch_size:int, hists:np.array, dims:tuple) -> torch.ten
             H is the height of the histogram.
     '''
     hist_tensor = torch.zeros(batch_size, 2, len(hists), dims[0], dims[1])
-    if len(hists) == 1: # 2D Case
-        hist_tensor = torch.zeros(batch_size, 2, dims[0], dims[1])
-        hist_tensor[:, 0, :, :] = torch.from_numpy(hist[:, :, 0])  # ON events
-        hist_tensor[:, 1, :, :] = torch.from_numpy(hist[:, :, 1])  # OFF events
+    if mode == "2d": # 2D Case
+        # hist_tensor = torch.zeros(batch_size, 2, dims[0], dims[1])
+        # for hist in hists:
+        #     on_events = torch.from_numpy(hist[:, :, 0].astype(np.float32))  # ON events
+        #     off_events = torch.from_numpy(hist[:, :, 1].astype(np.float32))  # OFF events
+        #     hist_tensor[:, 0, :, :] = on_events
+        #     hist_tensor[:, 1, :, :] = off_events
+        # return hist_tensor
+        hist_tensor = torch.zeros(batch_size, len(hists) * 2, dims[0], dims[1])
+        for idx, hist in enumerate(hists):
+            on_events = torch.from_numpy(hist[:, :, 0].astype(np.float32))  # ON events
+            off_events = torch.from_numpy(hist[:, :, 1].astype(np.float32))  # OFF events
+            hist_tensor[:, idx+idx, :, :] = on_events
+            hist_tensor[:, idx+idx+1, :, :] = off_events
         return hist_tensor
-    for i, hist in enumerate(hists): # 3D Case
-        hist_tensor[:, 0, i, :, :] = torch.from_numpy(hist[:, :, 0])  # ON events
-        hist_tensor[:, 1, i, :, :] = torch.from_numpy(hist[:, :, 1])  # OFF events
-    return hist_tensor
+    elif mode == "3d":
+        for i, hist in enumerate(hists): # 3D Case
+            hist_tensor[:, 0, i, :, :] = torch.from_numpy(hist[:, :, 0])  # ON events
+            hist_tensor[:, 1, i, :, :] = torch.from_numpy(hist[:, :, 1])  # OFF events
+        return hist_tensor
+    else:
+        raise ValueError(f"Invalid mode: {mode}. Please choose either '2d' or '3d'.")
 
 if __name__ == "__main__":
     net = EventVPREncoder(in_channels=2, out_channels=32, kernel_size=7, num_places=5)
