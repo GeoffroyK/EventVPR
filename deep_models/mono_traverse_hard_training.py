@@ -5,7 +5,7 @@ import seaborn as sns
 import numpy as np
 import random
 from spikingjelly.clock_driven import neuron, surrogate, functional
-from utils.recalltw import get_event_seq, get_time_window, time_windows_around
+from utils.recalltw import time_windows_around
 
 from vpr_encoder import convert_hist_tensor
 from constant_paths import hot_pixels_locations
@@ -85,8 +85,13 @@ class MonoTraverseDataset(torch.utils.data.Dataset):
 
         for traverse in traverses:
             print(f"Processing traverse {traverse}")
-            event_seq = get_event_seq(traverse, n_places, 1.0, format)
+            from utils.recalltw import get_event_seq
             
+            event_seq = self.get_event_seq_offset(traverse, n_places, 1.0, format, offset=2)
+            # print(f"Event sequence shape offset: {event_seq[0].shape}")
+            # event_seq = get_event_seq(traverse, n_places, 1.0, format)
+            # print(f"Event sequence shape normal: {event_seq[0].shape}")
+
             for idx, place in enumerate(event_seq):
                 event_seq[idx] = self.filter_hot_pixels(traverse, place)
 
@@ -114,40 +119,61 @@ class MonoTraverseDataset(torch.utils.data.Dataset):
         events = events[keep_mask]
         return events   
     
-    def get_event_seq(self, traverse, n_places, timewindow, format='pickle') -> list:
+    def get_event_seq_offset(self, traverse, n_places, timewindow, format='pickle', offset=0) -> list:
         '''
         Get the event sequence of each places on selectected traverse at a fixed timewindow
-        (must be saved before with the save_time_window function)
+        with an offset between places
         '''
+        curr_offset = 0
         event_seq = []
         for place in range(n_places):
             if format == 'pickle':
-                event_seq.append(np.load(f"/home/geoffroy/Documents/EventVPR/notebooks/extracted_places/{traverse}_{place}_{timewindow}.npy", allow_pickle=True))
+                events = np.load(f"/home/geoffroy/Documents/EventVPR/notebooks/extracted_places/{traverse}_{place + curr_offset}_{timewindow}.npy", allow_pickle=True)
             elif format == 'txt':
-                event_seq.append(np.loadtxt(f"/home/geoffroy/Documents/EventVPR/notebooks/extracted_places/{traverse}_{place}_{timewindow}.txt"))
-        return np.array(event_seq, dtype=object)
+                events = np.loadtxt(f"/home/geoffroy/Documents/EventVPR/notebooks/extracted_places/{traverse}_{place + curr_offset}_{timewindow}.txt")
+            bin, n, e, = events.shape
+            events = events.reshape(bin*n, e)    
+            event_seq.append(events)
+            curr_offset += offset
+        # Return list of events instead of concatenating
+        
+        return event_seq
 
 if __name__ == "__main__":
-    dataset = MonoTraverseDataset(traverses=["sunset1"], n_places=15, time_window=0.3, n_hist=1, format='pickle', mode='2d')
+    train_dataset = MonoTraverseDataset(traverses=["sunset1"], n_places=50, time_window=0.3, n_hist=25, format='pickle', mode='2d')
+    val_dataset = MonoTraverseDataset(traverses=["sunset2"], n_places=50, time_window=0.3, n_hist=25, format='pickle', mode='2d')
     from triplet_mining import ProximityBasedHardMiningTripletLoss
     from torch.utils.data import DataLoader
-    criterion = ProximityBasedHardMiningTripletLoss(margin=1, distance_threshold=6)
-    train_loader = DataLoader(dataset, batch_size=3, shuffle=True)
-    net = SNNEncoder(input_dim=2, hidden_dim=128, output_dim=128)
+    criterion = ProximityBasedHardMiningTripletLoss(margin=1, distance_threshold=3)
+    train_loader = DataLoader(train_dataset, batch_size=25, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=25, shuffle=True)
+    net = SNNEncoder(input_dim=2*25 + 2, hidden_dim=128, output_dim=128)
     optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
 
-    net.train()
-    for epoch in range(10):
+    for epoch in range(29):
         train_loss = 0
+        val_loss = 0
+        net.train()
         for batch_idx, (data, target) in enumerate(train_loader):
             optimizer.zero_grad()
             net(data)
             output = net.sn_final.v
             functional.reset_net(net)
 
-            loss, acc = criterion(target, output)
+            loss, train_acc = criterion(target, output)
             loss.backward()
             optimizer.step()
             train_loss += loss.item()
+
+        net.eval()
+        with torch.no_grad():
+            for batch_idx, (data, target) in enumerate(val_loader):
+                output = net(data)
+                functional.reset_net(net)
+                loss, val_acc = criterion(target, output)
+            val_loss += loss.item()
+
         print(f"Epoch {epoch} Train Loss {train_loss/len(train_loader)}")
-        print(f"Epoch {epoch} Train Accuracy {acc/len(train_loader)}")
+        print(f"Epoch {epoch} Train Accuracy {train_acc/len(train_loader)}")
+        print(f"Epoch {epoch} Val Loss {val_loss/len(val_loader)}")
+        print(f"Epoch {epoch} Val Accuracy {val_acc/len(val_loader)}")
