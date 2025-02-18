@@ -128,7 +128,7 @@ class MonoTraverseDataset(torch.utils.data.Dataset):
         return np.array(event_seq, dtype=object)
 
 if __name__ == "__main__":
-    dataset = MonoTraverseDataset(traverses=["sunset1"], n_places=15, time_window=0.3, n_hist=1, format='pickle', mode='2d')
+    dataset = MonoTraverseDataset(traverses=["sunset1"], n_places=5, time_window=0.3, n_hist=1, format='pickle', mode='2d')
     from triplet_mining import ProximityBasedHardMiningTripletLoss
     from torch.utils.data import DataLoader
     criterion = ProximityBasedHardMiningTripletLoss(margin=1, distance_threshold=6)
@@ -146,6 +146,7 @@ if __name__ == "__main__":
             functional.reset_net(net)
 
             loss, acc = criterion(target, output)
+            print(loss)
             loss.backward()
             optimizer.step()
             train_loss += loss.item()
