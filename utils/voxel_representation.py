@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from utils import recalltw
 from utils.visualisation import plot_voxel_grids, plot_3d_voxel_grid
 
-def convert__voxel_grid(events_seq, T, dim=None):
+def convert_voxel_grid(events_seq, T, dim=None):
     """
     Voxel grid representation, each event distributes its polarity p to the two closest spatio-temporal voxels.
     Algorithm:
