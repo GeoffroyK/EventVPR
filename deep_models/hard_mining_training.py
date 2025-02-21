@@ -11,7 +11,7 @@ import numpy as np
 from sklearn.manifold import TSNE
 from sklearn.metrics import precision_recall_curve, auc
 from deep_models.triplet_mining import HardTripletLoss
-from utils.visualisation import plot_recalln
+from utils.visualisation import plotRecallAtN
 
 cropping = (0, 0)
 
@@ -73,7 +73,7 @@ class SNNEncoder(nn.Module):
         x = x.view(x.size(0), -1)
         x = self.fc(x)
         x = self.sn_final(x)
-        x = self.sn_final.v.detach()
+        x = self.sn_final.v
         return x
 
 def to_dataloader(dataset, batch_size=8, shuffle=True):
@@ -101,10 +101,16 @@ def validation_step(model, criterion, anchor, target):
 
     return val_loss.item(), val_acc.item()
 
-def train_network(model, train_dataloader, test_dataloader, optimizer, criterion, device, epochs=10):
+def train_network(model, train_dataloader, optimizer, criterion, device, epochs=10):
     model.to(device)
     embedding_frames = []  # Store embeddings for animation
     labels = []
+    
+    # Add tracking lists for metrics
+    train_losses = []
+    train_accuracies = []
+    val_losses = []
+    val_accuracies = []
 
     print(f"Using device: {device}")
     for epoch in range(epochs):
@@ -124,24 +130,63 @@ def train_network(model, train_dataloader, test_dataloader, optimizer, criterion
             train_steps += 1
 
         # Validation loop
-        for anchor, target in tqdm(test_dataloader, desc=f'Validation Epoch {epoch+1}'):
-            anchor, target = anchor.to(device), target.to(device)
-            loss, acc = validation_step(model, criterion, anchor, target)
-            epoch_val_loss += loss
-            epoch_val_acc += acc
-            val_steps += 1
+        # for anchor, target in tqdm(test_dataloader, desc=f'Validation Epoch {epoch+1}'):
+        #     anchor, target = anchor.to(device), target.to(device)
+        #     loss, acc = validation_step(model, criterion, anchor, target)
+        #     epoch_val_loss += loss
+        #     epoch_val_acc += acc
+        #     val_steps += 1
 
         # Calculate epoch metrics
         avg_train_loss = epoch_train_loss / train_steps 
         avg_train_acc = epoch_train_acc / train_steps
-        avg_val_loss = epoch_val_loss / val_steps
-        avg_val_acc = epoch_val_acc / val_steps
+        # avg_val_loss = epoch_val_loss / val_steps
+        # avg_val_acc = epoch_val_acc / val_steps
 
-        print(f"Epoch {epoch+1}")
-        print(f"Training - Loss: {avg_train_loss:.4f}, Accuracy: {avg_train_acc:.4f}")
-        print(f"Validation - Loss: {avg_val_loss:.4f}, Accuracy: {avg_val_acc:.4f}")
+        # Store metrics
+        train_losses.append(avg_train_loss)
+        train_accuracies.append(avg_train_acc)
+        # val_losses.append(avg_val_loss)
+        # val_accuracies.append(avg_val_acc)
+        # print(f"Epoch {epoch+1} | Training - Loss: {avg_train_loss:.4f}, Accuracy: {avg_train_acc:.4f} | Validation - Loss: {avg_val_loss:.4f}, Accuracy: {avg_val_acc:.4f}")
+        print(f"Epoch {epoch+1} | Training - Loss: {avg_train_loss:.4f}, Accuracy: {avg_train_acc:.4f}")
 
+
+    # Plot training history
+    plot_training_history(train_losses, val_losses, train_accuracies, val_accuracies)
+    
     return model, embedding_frames, labels
+
+def plot_training_history(train_losses, val_losses, train_accuracies, val_accuracies):
+    """
+    Plot training and validation metrics history
+    """
+    epochs = range(1, len(train_losses) + 1)
+    
+    # Create a figure with two subplots
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12))
+    
+    # Plot losses
+    ax1.plot(epochs, train_losses, 'b-', label='Training Loss')
+    ax1.plot(epochs, val_losses, 'r-', label='Validation Loss')
+    ax1.set_title('Training and Validation Loss')
+    ax1.set_xlabel('Epochs')
+    ax1.set_ylabel('Loss')
+    ax1.legend()
+    ax1.grid(True)
+    
+    # Plot accuracies
+    ax2.plot(epochs, train_accuracies, 'b-', label='Training Accuracy')
+    ax2.plot(epochs, val_accuracies, 'r-', label='Validation Accuracy')
+    ax2.set_title('Training and Validation Accuracy')
+    ax2.set_xlabel('Epochs')
+    ax2.set_ylabel('Accuracy')
+    ax2.legend()
+    ax2.grid(True)
+    
+    plt.tight_layout()
+    plt.savefig('training_history.png')
+    plt.close()
 
 def visualize_embeddings(model, viz_dataloader, device, n_samples=1000, perplexity=2, title="t-SNE Visualization of Brisbane places embeddings", n_places=10):
     """
@@ -314,7 +359,7 @@ def compute_recall_n(model, reference, predictions, n_bins, device, state=None, 
             ax_recall = ax[1]
         reference_embeddings = reference_embeddings.squeeze(1)
         curr_pred_embeddings = curr_pred_embeddings.squeeze(1)
-        ax_matrices, ax_recall = plot_recalln(reference_embeddings, curr_pred_embeddings, title=f"Recall@N for {reference}_{predictions[idx]} + {state}", legend=f"{predictions[idx]}{state}", save=save, ax_matrices=ax_matrices, ax_recall=ax_recall)
+        ax_matrices, ax_recall = plotRecallAtN(reference_embeddings, curr_pred_embeddings, title=f"Recall@N for {reference}_{predictions[idx]} + {state}", legend=f"{predictions[idx]}{state}", save=save, ax_matrices=ax_matrices, ax_recall=ax_recall)
     return ax_recall, ax_matrices
 
 if __name__ == "__main__":
@@ -322,9 +367,9 @@ if __name__ == "__main__":
     Hyperparameters
     '''
     n_bins = 24 # Keep bins pair for now
-    n_places = 25
-    batch_size = 32
-    epochs = 60
+    n_places = 8
+    batch_size = 16
+    epochs = 20
     n_augmentations = 7
     output_dim = 128
 
@@ -339,22 +384,21 @@ if __name__ == "__main__":
     train_dataset = HardDATripletDataset(train_dataset_original)
     train_loader = to_dataloader(train_dataset, batch_size=batch_size)
 
-    test_traverses = ["sunset2", "morning", "sunset1", "sunrise"] 
-    #test_dataset_original = DATripletVPRDataset(traverses=test_traverses, n_places=10, time_window=0.3, n_hist=n_bins, format='pickle', mode='2d', augmentations_per_sample=1)
-    test_dataset_original = TripletVPRDataset(traverses=test_traverses, n_places=n_places, time_window=0.3, n_hist=n_bins, format='pickle', mode='2d')
-    test_dataset = HardTripletDataset(test_dataset_original)
-    test_loader = to_dataloader(test_dataset, batch_size=batch_size)
+    # test_traverses = ["sunset2", "morning", "sunset1", "sunrise"] 
+    # #test_dataset_original = DATripletVPRDataset(traverses=test_traverses, n_places=10, time_window=0.3, n_hist=n_bins, format='pickle', mode='2d', augmentations_per_sample=1)
+    # test_dataset_original = TripletVPRDataset(traverses=test_traverses, n_places=n_places, time_window=0.3, n_hist=n_bins, format='pickle', mode='2d')
+    # test_dataset = HardTripletDataset(test_dataset_original)
+    # test_loader = to_dataloader(test_dataset, batch_size=batch_size)
 
-    viz_loader_val = VizTripletDataset(test_dataset_original)
-    viz_loader_val = to_dataloader(viz_loader_val, batch_size=1)
+    # viz_loader_val = VizTripletDataset(test_dataset_original)
+    # viz_loader_val = to_dataloader(viz_loader_val, batch_size=1)
 
-    viz_loader_train = VizDATripletDataset(train_dataset_original)
-    viz_loader_train = to_dataloader(viz_loader_train, batch_size=1)
+    # viz_loader_train = VizDATripletDataset(train_dataset_original)
+    # viz_loader_train = to_dataloader(viz_loader_train, batch_size=1)
 
     # For computing recall@N before training
     reference_traverse = ["sunset1"]
     predictions_traverse = ["sunset2"]
-    
 
     # Recall@N stuff
     reference_dataset = TripletVPRDataset(traverses=reference_traverse, n_places=n_places, time_window=0.3, n_hist=n_bins, format='pickle', mode='2d')
@@ -382,24 +426,21 @@ if __name__ == "__main__":
     # distances_histograms = compute_distance_matrix(reference_histograms, predictions_histograms)
     recall_at_n_histograms = calculate_recall_n(distances_histograms)
     
-    
     predictions_embeddings, _ = collect_embeddings(model, predictions_dataset, device)
     predictions_embeddings = torch.tensor(predictions_embeddings).squeeze(1)
     
-
-
     # distances_before = compute_distance_matrix(reference_embeddings, predictions_embeddings)
     distances_before = get_distance_matrix(reference_embeddings, predictions_embeddings)
     recall_at_n_before = calculate_recall_n(distances_before)
     
     #ax_recall, ax_matrices = compute_recall_n(model, reference_traverse, predictions_traverse, n_bins, device, state="before", save=False)
-    visualize_embeddings(model, viz_loader_val, device, n_samples=len(viz_loader_val), perplexity=10, title="t-SNE Visualisation, Validation Set; before training", n_places=n_places)
+    # visualize_embeddings(model, viz_loader_val, device, n_samples=len(viz_loader_val), perplexity=10, title="t-SNE Visualisation, Validation Set; before training", n_places=n_places)
 
-    train_network(model, train_loader, test_loader, optimizer, criterion, device, epochs=60)
+    train_network(model, train_loader, optimizer, criterion, device, epochs=epochs)
   
     #compute_recall_n(model, reference_traverse, predictions_traverse, n_bins, device, state="after",  ax=[ax_recall, ax_matrices], save=True)
-    visualize_embeddings(model, viz_loader_val, device, n_samples=len(viz_loader_val), perplexity=10, title="t-SNE Visualisation, Validation Set", n_places=n_places)
-    visualize_embeddings(model, viz_loader_train, device, n_samples=len(viz_loader_train), perplexity=10, title="t-SNE Visualisation, Training Set", n_places=n_places)
+    # visualize_embeddings(model, viz_loader_val, device, n_samples=len(viz_loader_val), perplexity=10, title="t-SNE Visualisation, Validation Set", n_places=n_places)
+    # visualize_embeddings(model, viz_loader_train, device, n_samples=len(viz_loader_train), perplexity=10, title="t-SNE Visualisation, Training Set", n_places=n_places)
 
     # Recall@N after training
     reference_embeddings, _ = collect_embeddings(model, reference_dataset, device)
