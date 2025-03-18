@@ -34,7 +34,7 @@ def event_drop(events_sequence: list, dims: tuple, option=None) -> list:
         implemented in separate functions.
     """
     if option is None:
-        option = np.random.randint(0,4)
+        option = np.random.randint(1,4)
     if option == 0: # Add events
         return random_adding(events_sequence, dims)
     elif option == 1: # Drop by time
@@ -48,7 +48,7 @@ def event_drop(events_sequence: list, dims: tuple, option=None) -> list:
     # elif option == 5: # Right shift
     #     return shift_right(events_sequence, dims)
     
-def random_adding(events_sequence: list, dims: tuple) -> list:
+def random_adding(events_sequence: np.array, dims: tuple) -> list:
     """
     Randomly add events to the input sequence.
 
@@ -76,11 +76,13 @@ def random_adding(events_sequence: list, dims: tuple) -> list:
         y = np.random.randint(0, dims[1])
         t = np.random.uniform(0, max(events_sequence[:,0]))
         p = np.random.randint(0, 1)
-        events_sequence.append([t, x, y, p])
+        # events_sequence.append([t, x, y, p])
+        events_sequence = np.append(events_sequence, [[t, x, y, p]], axis=0)
 
     # Sort events by timestamp
     events_sequence = sorted(events_sequence, key=lambda x: x[0])
-    return events_sequence
+    #events_sequence = np.sort(events_sequence, axis=0)
+    return np.array(events_sequence)
 
 def random_drop(events_sequence: list) -> list:
     """
@@ -210,3 +212,14 @@ def shift_left(events_sequence: list, dims:tuple, offset=None) -> list:
     events_sequence = events_sequence[(events_sequence[:, 2] >= 0) & (events_sequence[:, 2] < dims[0])]
     
     return events_sequence
+
+
+if __name__ == "__main__":
+    timesteps = np.random.random(100)
+    timesteps = np.sort(timesteps)
+    dims = (346,260)
+    x = np.random.randint(0, dims[0], 100)
+    y = np.random.randint(0, dims[1], 100)
+    p = np.random.randint(0, 2, 100)
+    events = np.array([timesteps, x, y, p]).T
+    print(event_drop(events, dims, option=0).shape)
